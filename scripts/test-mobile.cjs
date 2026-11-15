@@ -38,6 +38,13 @@ const server=http.createServer((req,res)=>{
   const rows=await page.locator('.real-day').allTextContents();
   assert.equal(rows.length,7);assert.ok(rows.every(x=>!x.includes('Keine Daten')),rows.join('\n'));
   assert.ok(rows[0].includes('Heute')&&!rows[0].includes('Keine Daten'));
+  const temperatures=await page.locator('.hour strong,.real-day .tempgroup span,.hero .temp').allTextContents();
+  assert.ok(temperatures.every(x=>!/\d[,.]\d/.test(x)),temperatures.join(' / '));
+  assert.equal(await page.locator('.real-day .day-icon img').count(),7);
+  assert.equal(await page.locator('.hour img').count(),await page.locator('.hour').count());
+  await page.waitForFunction(()=>[...document.querySelectorAll('.real-day img,.hour img')].every(i=>i.complete&&i.naturalWidth>0));
+  await page.locator('.real-day').nth(2).click();
+  assert.ok(await page.locator('.day-hour-header img').count()>0);
   await page.waitForFunction(()=>document.querySelector('#home-value-radar')?.innerText.startsWith('DWD ·'),{},{timeout:25000});
   for(const width of [390,320,430,900]){
    await page.setViewportSize({width,height:844});

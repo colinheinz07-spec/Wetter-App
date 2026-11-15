@@ -33,7 +33,7 @@ EXTRA = {"vmax_10m":("gust",3.6,0,.1),"h_snow":("snowdepth",100,0,.1),
          "relhum_2m":("rh2",1,0,.1),"clcl":("lowcloud",1,0,.1),
          "clcm":("midcloud",1,0,.1),"clch":("highcloud",1,0,.1),
          "t_g":("tground",1,-273.15,.1),"snowlmt":("snowline",1,0,1),
-         "hzerocl":("freezing",1,0,1)}
+         "hzerocl":("freezing",1,0,1),"ww":("ww",1,0,1)}
 FILENAME = re.compile(r'href="([^"]*regular-lat-lon_single-level_(\d{10})_(\d{3})[^"]*\.grib2\.bz2)"')
 PRESSURE_FILENAME = re.compile(r'href="([^"]*regular-lat-lon_pressure-level_(\d{10})_(\d{3})_(\d+)_.*\.grib2\.bz2)"')
 PRESSURE = {"t":{850:("t850",1,-273.15),700:("t700",1,-273.15),500:("t500",1,-273.15)},

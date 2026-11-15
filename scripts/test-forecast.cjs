@@ -5,8 +5,8 @@ const assert = require('node:assert/strict');
 const html = fs.readFileSync('index.html','utf8');
 const chunk = (from,to) => html.slice(html.indexOf(from),html.indexOf(to));
 const context = vm.createContext({console,Date,atob,Int16Array,Map,Set,Math,Number});
-vm.runInContext(chunk('const realModelFiles=','async function fetchRealModel') + chunk('const localDay=','const realPoint=')+
-  chunk('const realPoint=','function frameWeather'),context);
+vm.runInContext(chunk('const realModelFiles=','async function fetchRealModel') + chunk('const localFormat=','const realPoint=')+
+  chunk('const realPoint=','const realWeatherIcon'),context);
 const d2=JSON.parse(fs.readFileSync('data/icon-d2.json','utf8'));
 const eu=JSON.parse(fs.readFileSync('data/icon-eu.json','utf8'));
 const run=d2.run, point=[7.8,50.5];
@@ -26,6 +26,19 @@ assert.ok(frames.some(f=>f.d.model==='IFS'));
 assert.ok(frames.every((f,i)=>i===0||f.time>frames[i-1].time));
 assert.ok(frames.at(-1).time>=Date.parse(run)+168*3600000);
 assert.equal(vm.runInContext(`parameterAt('t850',point,Date.parse(run)+180*3600000,null).value`,context),-3);
+assert.equal(vm.runInContext(`JSON.stringify([7.4,7.5,-1.5,-.4,0,NaN].map(temperatureText))`,context),'["7","8","-2","0","0","—"]');
+Object.assign(context,{packed});
+vm.runInContext(`const wwTest={...ifs,model:'ICON-D2',frames:{6:{...ifs.frames[6],ww:packed(73)},12:{...ifs.frames[12],ww:packed(95)}}};const sample=(d,hour)=>({d,hour,time:Date.parse(run)+hour*3600000,point});`,context);
+assert.equal(vm.runInContext(`frameWeather(sample(wwTest,6),true).icon`,context),'21_schnee_2');
+assert.equal(vm.runInContext(`frameWeather(sample(wwTest,12),true).icon`,context),'35_gewitterregen');
+assert.equal(vm.runInContext(`dailyWeatherFrame([sample(wwTest,6),sample(wwTest,12)]).hour`,context),12);
+vm.runInContext(`weatherCodesCache.set('ICON-D2',{run,grid:wwTest.grid,frames:{18:packed(48)}});`,context);
+assert.equal(vm.runInContext(`frameWeather(sample(wwTest,18),true).icon`,context),'66_gefrierender_nebel');
+assert.ok(Number.isNaN(vm.runInContext(`frameVal(sample({...wwTest,run:new Date(Date.parse(run)+3600000).toISOString()},18),'ww')`,context)));
+vm.runInContext(`ifs.frames[6].ptype=packed(7);ifs.scales={ptype:1};realDecoded.delete('IFS/'+run+'/6/ptype')`,context);
+assert.equal(vm.runInContext(`frameWeather(sample(ifs,6),true).icon`,context),'29_schneeregen_2');
+assert.equal(vm.runInContext(`frameWeather(sample(ifs,12),true).source`,context),'Modell-Niederschlagssumme');
+console.log('Whole-degree temperatures, exact WW, IFS precipitation type and same-run supplemental fields: OK');
 console.log('Existing ICON grids, IFS schema, model transitions, precipitation and missing fields: OK');
 if(fs.existsSync('data/ifs.json')){
  const actual=JSON.parse(fs.readFileSync('data/ifs.json','utf8'));
@@ -33,5 +46,6 @@ if(fs.existsSync('data/ifs.json')){
  vm.runInContext('realModelCache.set("IFS",validateRealData(actual,"IFS"));realDecoded.clear()',context);
  const days=vm.runInContext(`const rows=modelLocationFrames(berlin,now,true);Array.from({length:7},(_,i)=>rows.filter(f=>localDay(f.time)===localDay(now+i*86400000)).map(f=>f.d.model))`,context);
  assert.ok(days.every(d=>d.length),JSON.stringify(days));assert.ok(days[6].includes('IFS'));
+ assert.ok(vm.runInContext(`rows.every(f=>!!frameWeather(f).icon)`,context));
  console.log('Real published IFS + ICON: seven days including late-evening Today: OK');
 }
