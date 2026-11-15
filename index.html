@@ -57,6 +57,7 @@
             <label class="map-select"><span>Live-Ebene (Demo)</span><select id="map-live-layer" aria-label="Live-Wetter-Ebene"><option value="radar">Niederschlagsradar</option><option value="types">Niederschlagsart · Regen / Schnee / Eis / Hagel</option><option value="snowfall">Schneefall</option><option value="snowcover">Schneehöhe</option><option value="lightning">Blitzaktivität</option></select></label>
             <label class="map-select"><span>Demo-Wetterlage</span><select id="map-live-scenario" aria-label="Beispielwetterlage"><option value="winter">Winterlage</option><option value="summer">Sommergewitter</option></select></label>
             <label class="live-overlay"><input type="checkbox" id="map-live-lightning"> Blitze überlagern</label>
+            <label class="live-overlay"><input type="checkbox" id="map-live-symbols" checked> Regen- / Schneesymbole</label>
           </div>
           <p class="live-map-note">Simulierte Beobachtungen · keine aktuellen Messdaten. Die Zeitachse zeigt die letzten zwei Stunden der Demo.</p>
         </div>
@@ -671,7 +672,7 @@ const liveLayers={
  snowcover:{label:'Schneehöhe',unit:'cm',stops:[1,3,5,10,20,40,80],colors:['#ffe1ef','#ffc1df','#f99fc9','#ed6eab','#d64288','#b52069','#790c47']},
  lightning:{label:'Blitzaktivität · letzte 30 Min.',unit:'Alter',stops:['0–5 min','5–15 min','15–30 min'],colors:['#ffec55','#ffaa3b','#e97143']}
 };
-let mapSource='model',liveLayer='radar',liveScenario='winter',liveMinute=0,liveLightning=false;
+let mapSource='model',liveLayer='radar',liveScenario='winter',liveMinute=0,liveLightning=false,liveSymbols=true;
 const liveTimeBases={winter:Date.UTC(2026,10,15,12,0),summer:Date.UTC(2026,6,15,14,0)};
 const liveGrid=.025;
 const liveGauss=(x,y,cx,cy,sx,sy)=>Math.exp(-.5*((x-cx)/sx)**2-.5*((y-cy)/sy)**2);
@@ -759,6 +760,51 @@ function drawLiveField(ctx,b,fast){
  ctx.save();ctx.imageSmoothingEnabled=false;ctx.drawImage(liveBuffer,0,0,b.w,b.h);ctx.restore();
 }
 function layerAlpha(layer){return layer==='snowcover'?185:255}
+// Lightweight, geographically anchored marks. They describe the sampled
+// precipitation type and supplement, rather than replace, the color scale.
+function liveSymbolPath(ctx,type,x,y,r){
+ ctx.beginPath();
+ if(type==='rain'){
+  ctx.moveTo(x,y-r);ctx.bezierCurveTo(x-r*.45,y-r*.35,x-r*.75,y+.02*r,x-r*.75,y+r*.30);
+  ctx.bezierCurveTo(x-r*.75,y+r*1.2,x+r*.75,y+r*1.2,x+r*.75,y+r*.30);
+  ctx.bezierCurveTo(x+r*.75,y+.02*r,x+r*.45,y-r*.35,x,y-r);ctx.closePath();
+ }else{
+  for(let i=0;i<6;i++){
+   const a=i*Math.PI/3,vx=Math.cos(a),vy=Math.sin(a),px=-vy,py=vx;
+   ctx.moveTo(x,y);ctx.lineTo(x+vx*r,y+vy*r);
+   for(const sign of [-1,1]){
+    ctx.moveTo(x+vx*r*.64,y+vy*r*.64);
+    ctx.lineTo(x+vx*r*.38+sign*px*r*.26,y+vy*r*.38+sign*py*r*.26);
+   }
+  }
+ }
+ ctx.lineJoin='round';ctx.lineCap='round';ctx.lineWidth=3.8;ctx.strokeStyle='#14283be6';ctx.stroke();
+ if(type==='rain'){ctx.fillStyle='#e4f6ff';ctx.fill()}
+ ctx.lineWidth=1.8;ctx.strokeStyle='#fff';ctx.stroke();
+}
+function drawLiveSymbols(ctx,b){
+ if(!liveSymbols||!['radar','types','snowfall'].includes(liveLayer))return 0;
+ const dx=(b.east-b.west)*76/b.w,dy=(b.north-b.south)*76/b.h;
+ let count=0;ctx.save();
+ for(let j=Math.ceil(b.south/dy);j<=Math.floor(b.north/dy);j++)for(let i=Math.ceil(b.west/dx);i<=Math.floor(b.east/dx);i++){
+  // Check the center and nearby samples to show a mark even in a narrow band.
+  let best=null;
+  for(const [ox,oy] of [[0,0],[-.23,0],[.23,0],[0,-.23],[0,.23]]){
+   const lon=(i+ox)*dx,lat=(j+oy)*dy,[x,y]=xy(lon,lat,b);
+   if(x<12||x>b.w-12||y<12||y>b.h-12)continue;
+   const s=demoObservationAdapter.sample(lon,lat,liveMinute,liveScenario);
+   if(!['rain','snow','mixed'].includes(s.type)||s.rate<.5||liveLayer==='snowfall'&&s.snowfall<.5)continue;
+   best={x,y,s};break;
+  }
+  if(!best)continue;
+  const {x,y,s}=best,r=8.5;
+  // Mixed precipitation receives both glyphs, only on the combined layers.
+  if(s.type==='mixed'&&liveLayer!=='snowfall'){liveSymbolPath(ctx,'rain',x-5,y,5.5);liveSymbolPath(ctx,'snow',x+5,y,5.5)}
+  else liveSymbolPath(ctx,s.type==='rain'?'rain':'snow',x,y,r);
+  count++;
+ }
+ ctx.restore();return count;
+}
 function drawLiveStrikes(ctx,b){
  if(liveLayer!=='lightning'&&!liveLightning)return;
  ctx.save();const strikes=demoObservationAdapter.strikes(liveMinute,liveScenario);
@@ -948,7 +994,7 @@ function gridSample(p,lon,lat){
  if(!gridCache.has(cell)){const value=demoValue(p.mode,ix*step,iy*step);gridCache.set(cell,{value,color:Number.isFinite(value)?colorAt(p,value):[95,110,125]})}
  return gridCache.get(cell);
 }
-function mapContentKey(){return [mapRegion,mapSource,mapModel,mapRun,mapHour,mapLayer,liveLayer,liveScenario,liveMinute,liveLightning,terrainMode,showDistricts,showPlaces,showRoads,showTerrain,showWater,mapPoint?.join(',')].join('/')}
+function mapContentKey(){return [mapRegion,mapSource,mapModel,mapRun,mapHour,mapLayer,liveLayer,liveScenario,liveMinute,liveLightning,liveSymbols,terrainMode,showDistricts,showPlaces,showRoads,showTerrain,showWater,mapPoint?.join(',')].join('/')}
 function drawMap(fast=false){
  const p=fields[mapLayer],b=bounds();mapView=b;
  if(mapCanvas.width!==b.w)mapCanvas.width=b.w;if(mapCanvas.height!==b.h)mapCanvas.height=b.h;const ctx=mapCanvas.getContext('2d');
@@ -963,7 +1009,7 @@ function drawMap(fast=false){
   buf.putImageData(img,0,0);ctx.imageSmoothingEnabled=mapZoom<4;ctx.drawImage(mapBuffer,0,0,b.w,b.h);
  }
  drawTerrain(ctx,b,fast);
- if(mapSource==='live'&&terrainMode!=='topo')drawLiveField(ctx,b,fast);
+ if(mapSource==='live'&&terrainMode!=='topo'){drawLiveField(ctx,b,fast);drawLiveSymbols(ctx,b)}
  drawGeography(ctx,b);drawOnlineMap(ctx,b,fast);drawBasemap(ctx,b);drawMapPlaces(ctx,b);
  if(mapSource==='live'&&terrainMode!=='topo')drawLiveStrikes(ctx,b);
  if(mapPoint){const [x,y]=xy(...mapPoint,b);if(x>=0&&x<=b.w&&y>=0&&y<=b.h){ctx.beginPath();ctx.arc(x,y,8,0,Math.PI*2);ctx.lineWidth=3;ctx.strokeStyle='#fff';ctx.stroke();ctx.lineWidth=1;ctx.strokeStyle='#192735';ctx.stroke()}}
@@ -1063,6 +1109,7 @@ document.querySelectorAll('[data-map-source]').forEach(b=>b.addEventListener('cl
 el('map-live-layer').addEventListener('change',e=>{stopPlay();liveLayer=e.target.value;scheduleMap()});
 el('map-live-scenario').addEventListener('change',e=>{stopPlay();liveScenario=e.target.value;scheduleMap()});
 el('map-live-lightning').addEventListener('change',e=>{liveLightning=e.target.checked;scheduleMap()});
+el('map-live-symbols').addEventListener('change',e=>{liveSymbols=e.target.checked;scheduleMap()});
 el('map-time').addEventListener('input',e=>{if(mapSource==='live')liveMinute=+e.target.value;else mapHour=+e.target.value;scheduleMap()});
 el('map-play').addEventListener('click',()=>{if(mapTimer!==null){stopPlay();return}el('map-play').textContent='Ⅱ';el('map-play').setAttribute('aria-label','Wiedergabe pausieren');mapTimer=setInterval(()=>{if(mapSource==='live'){liveMinute=liveMinute>=0?-120:liveMinute+5;el('map-time').value=liveMinute}else{const m=mapModels[mapModel];mapHour=mapHour+m.step>m.max?minHour():mapHour+m.step;el('map-time').value=mapHour}scheduleMap()},480)});
 const mapPointers=new Map();
