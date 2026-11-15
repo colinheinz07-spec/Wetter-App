@@ -1434,14 +1434,18 @@ async function fetchRealModel(model,force=false){
  const task=(async()=>{
   let failure;
   const local='data/'+file+'.json',remote='https://raw.githubusercontent.com/colinheinz07-spec/Wetter-App/main/data/'+file+'.json';
-  for(const url of realModelCache.has(model)?[remote,local]:[local,remote]){
+  const compressed=typeof DecompressionStream==='function';
+  const candidates=realModelCache.has(model)?[remote,local]:[local,remote];
+  for(const url of candidates.flatMap(url=>compressed?[url+'.gz',url]:[url])){
    try{
     const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),['IFS','GFS'].includes(model)?90000:45000);let response;
     try{response=await fetch(url,{cache:'no-cache',credentials:'omit',signal:controller.signal});if(!response.ok)throw Error('HTTP '+response.status);
-    const d=validateRealData(await response.json(),model);
+    let payload;if(url.endsWith('.gz')){const raw=await response.arrayBuffer(),bytes=new Uint8Array(raw);payload=bytes[0]===31&&bytes[1]===139?await new Response(new Blob([raw]).stream().pipeThrough(new DecompressionStream('gzip'))).json():JSON.parse(new TextDecoder().decode(raw))}else payload=await response.json();
+    const d=validateRealData(payload,model);
     const previous=realModelCache.get(model);
     if(!previous||Date.parse(d.run)>Date.parse(previous.run)||Date.parse(d.run)===Date.parse(previous.run)&&Date.parse(d.generated)>Date.parse(previous.generated)){realModelCache.set(model,d);for(const key of realDecoded.keys())if(key.startsWith(model+'/'))realDecoded.delete(key);realModelRevision++;changed=true}
-    if(url===local&&Date.now()-Date.parse(d.run)>(['IFS','GFS'].includes(model)?24:9)*3600000)continue;
+    if(url.startsWith(local)&&Date.now()-Date.parse(d.run)>(['IFS','GFS'].includes(model)?24:9)*3600000)continue;
+    if(previous&&Date.parse(d.run)<Date.parse(previous.run))continue;
     return;}finally{clearTimeout(timeout)}
    }catch(e){failure=e}
   }
@@ -1721,6 +1725,7 @@ function drawRealLiveField(ctx,b,fast){
 }
 function realLiveLabels(){
  const info=realLiveInfo(),valid=Number.isFinite(info.date.getTime());
+ document.querySelector('.live-map-note').textContent='Reale DWD- und EUMETSAT-Beobachtungen, separat gekennzeichnete Modellprognosen. Zeitstempel und Datenverfügbarkeit je Produkt.';
  if(info.image){const state=liveImageCache.get(liveLayer)?.state,status=!info.available?(liveImageryRequest?'Bild wird geladen …':'Kein aktuelles Bild verfügbar'):state==='ready'?'Beobachtung':state==='error'?'Bild konnte nicht geladen werden':'Bild wird geladen …';el('map-layer-title').textContent=liveLayers[liveLayer].label;el('map-model-badge').textContent=status;el('map-overlay-model').textContent=info.source;el('map-overlay-data').textContent=status;el('map-data-notice').textContent=status;el('map-valid').textContent=valid?'Messzeit: '+timeText(info.date):'Keine gültige Datenzeit';el('map-view-description').textContent=info.source;el('map-interval').textContent=liveLayer==='satellite'?'GeoColour: Wolkenbild (Tag / Nacht), keine Radarreflektivität.':'DWD DMAX: maximales Radarecho in dBZ in der vertikalen Luftsäule, keine Niederschlagsrate.';el('map-time-label').textContent='Letzte Beobachtung';return}
  const radarEntry=info.radar&&valid?radarImages.get(radarImageUrl(bounds(),info.date)):null,imageState=radarEntry?.state;
  const status=!info.available?'Keine Daten':info.radar?(imageState==='ready'?'DWD · Radar':imageState==='error'?'Radar nicht erreichbar':'Radar wird geladen …'):info.stations?'DWD · Messpunkte':(info.model?modelProvider(info.model.d.model)+' · Modell':'Keine Daten');
@@ -1926,6 +1931,40 @@ function gridSample(p,lon,lat){
  return gridCache.get(cell);
 }
 function mapContentKey(){return [mapRegion,mapSource,mapModel,mapRun,mapHour,mapLayer,modelDataMode,realModelRevision,typeof realLiveEnabled!=='undefined'&&realLiveEnabled,typeof radarRevision!=='undefined'&&radarRevision,liveLayer,liveScenario,liveDisplayMinute(),liveLightning,liveSymbols,terrainMode,showDistricts,showPlaces,showRoads,showTerrain,showWater,mapPoint?.join(',')].join('/')}
+function pressureExtrema(values,g,radius){
+ const found=[];for(let y=radius;y<g.ny-radius;y++)for(let x=radius;x<g.nx-radius;x++){
+  const center=values[y*g.nx+x];if(!Number.isFinite(center))continue;
+  let low=true,high=true,min=center,max=center,valid=true;
+  for(let dy=-radius;dy<=radius&&valid&&(low||high);dy++)for(let dx=-radius;dx<=radius;dx++){
+   if(!dx&&!dy)continue;const v=values[(y+dy)*g.nx+x+dx];if(!Number.isFinite(v)){valid=false;break}
+   min=Math.min(min,v);max=Math.max(max,v);if(v<center)low=false;if(v>center)high=false;
+  }
+  if(valid&&low&&max-center>=2)found.push({x,y,value:center,label:'T',strength:max-center});
+  if(valid&&high&&center-min>=2)found.push({x,y,value:center,label:'H',strength:center-min});
+ }
+ return found.sort((a,b)=>b.strength-a.strength).filter((p,i,all)=>!all.slice(0,i).some(q=>q.label===p.label&&Math.hypot(q.x-p.x,q.y-p.y)<radius*2));
+}
+function drawRealPressure(ctx,b,fast){
+ if(fast||mapSource!=='model'||modelDataMode!=='real'||terrainMode==='topo'||!['slp','z500'].includes(mapLayer))return;
+ const d=realData(),g=d?.grid,raw=d&&decodeRealField(d,mapHour,'slp');if(!raw)return;
+ const scale=d.scales?.slp??g.scale,values=Float32Array.from(raw,v=>v===g.missing?NaN:v*scale);
+ const pos=(x,y)=>xy(g.west+x*g.step,g.south+y*g.step,b);
+ const xmin=Math.max(0,Math.floor((b.west-g.west)/g.step)),xmax=Math.min(g.nx-1,Math.ceil((b.east-g.west)/g.step));
+ const ymin=Math.max(0,Math.floor((b.south-g.south)/g.step)),ymax=Math.min(g.ny-1,Math.ceil((b.north-g.south)/g.step));
+ ctx.save();ctx.strokeStyle='#24384eb0';ctx.lineWidth=.8;
+ for(let y=ymin;y<ymax;y++)for(let x=xmin;x<xmax;x++){
+  const corners=[[x,y],[x+1,y],[x+1,y+1],[x,y+1]],vs=corners.map(([a,c])=>values[c*g.nx+a]);if(!vs.every(Number.isFinite))continue;
+  for(let p=Math.ceil(Math.min(...vs)/5)*5;p<=Math.max(...vs);p+=5){const crossings=[];
+   for(let k=0;k<4;k++){const n=(k+1)%4,a=vs[k],z=vs[n];if((a<p)===(z<p)||a===z)continue;const t=(p-a)/(z-a);crossings.push(pos(corners[k][0]+t*(corners[n][0]-corners[k][0]),corners[k][1]+t*(corners[n][1]-corners[k][1])))}
+   if(crossings.length>=2){ctx.beginPath();for(let k=0;k+1<crossings.length;k+=2){ctx.moveTo(...crossings[k]);ctx.lineTo(...crossings[k+1])}ctx.stroke()}
+  }
+ }
+ for(const p of pressureExtrema(values,g,Math.max(2,Math.round(1.25/g.step)))){
+  const [x,y]=pos(p.x,p.y);if(x<20||x>b.w-20||y<20||y>b.h-25)continue;
+  ctx.textAlign='center';ctx.font='bold 22px Arial';ctx.lineWidth=3;ctx.strokeStyle='#fff';ctx.strokeText(p.label,x,y);ctx.fillStyle=p.label==='H'?'#1b55bd':'#b3283d';ctx.fillText(p.label,x,y);ctx.font='bold 11px Arial';ctx.strokeText(Math.round(p.value),x,y+13);ctx.fillText(Math.round(p.value),x,y+13);
+ }
+ ctx.restore();
+}
 function drawMap(fast=false){
  const p=fields[mapLayer],b=bounds();mapView=b;
  if(mapCanvas.width!==b.w)mapCanvas.width=b.w;if(mapCanvas.height!==b.h)mapCanvas.height=b.h;const ctx=mapCanvas.getContext('2d');
@@ -1943,7 +1982,7 @@ function drawMap(fast=false){
  if(liveContinuous)drawLiveField(ctx,b,fast);
  drawTerrain(ctx,b,fast);
  if(mapSource==='live'&&terrainMode!=='topo'){if(!liveContinuous)drawLiveField(ctx,b,fast);drawLiveSymbols(ctx,b);if(liveLayer==='wind')drawLiveWindArrows(ctx,b)}
- drawGeography(ctx,b);drawOnlineMap(ctx,b,fast);drawBasemap(ctx,b);drawMapPlaces(ctx,b);
+ drawGeography(ctx,b);drawOnlineMap(ctx,b,fast);drawBasemap(ctx,b);drawMapPlaces(ctx,b);drawRealPressure(ctx,b,fast);
  if(mapSource==='live'&&terrainMode!=='topo'&&typeof realLiveEnabled!=='undefined'&&realLiveEnabled)drawRealStations(ctx,b);
  if(mapSource==='live'&&terrainMode!=='topo')drawLiveStrikes(ctx,b);
  if(mapPoint){const [x,y]=xy(...mapPoint,b);if(x>=0&&x<=b.w&&y>=0&&y<=b.h){ctx.beginPath();ctx.arc(x,y,8,0,Math.PI*2);ctx.lineWidth=3;ctx.strokeStyle='#fff';ctx.stroke();ctx.lineWidth=1;ctx.strokeStyle='#192735';ctx.stroke()}}
@@ -2003,6 +2042,7 @@ function mapLabels(){
  if(terrainMode==='topo')el('map-interval').textContent='';
  if(mapSource==='live'&&terrainMode!=='topo'){
   el('map-weather-controls').hidden=true;
+  document.querySelector('.live-map-note').textContent='Demo · simulierte Beobachtungen und Prognosen, keine aktuellen Messdaten.';
   const future=liveIsFuture(),minute=liveDisplayMinute(),temp=liveLayer==='temperature',wind=liveLayer==='wind',hourly=liveHourlyMode(),dailyRadar=hourly&&nowcastLayers.has(liveLayer);
   el('map-layer-title').textContent=temp?(future?'Temperaturprognose · 2 m':'Temperatur · 2 m'):wind?(future?'Windprognose · 10 m':'Wind · 10 m'):dailyRadar?(liveLayer==='radar'?(future?'Niederschlagsprognose':'Niederschlag · Tagesverlauf'):liveLayers[liveLayer].label+(future?' · Prognose':'')):liveLayers[liveLayer].label;
   el('map-model-badge').textContent=future?'PROGNOSE · DEMO':'LIVE · DEMO';el('map-overlay-model').textContent=future?(hourly?'PROGNOSE':'NOWCAST'):'OBS';

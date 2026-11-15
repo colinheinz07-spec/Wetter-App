@@ -44,6 +44,8 @@ assert.equal(vm.runInContext(`chooseLocationModel(Date.parse(run)+180*3600000,po
 assert.equal(vm.runInContext(`realModelCache.delete('IFS');chooseLocationModel(Date.parse(run)+180*3600000,point).d.model`,context),'GFS');
 vm.runInContext(`realModelCache.set('IFS',ifs);realModelCache.delete('GFS')`,context);
 console.log('GFS fallback and pressure-level wind vector: OK');
+vm.runInContext(chunk('function pressureExtrema(','function drawRealPressure('),context);
+assert.equal(vm.runInContext(`pressureExtrema(Array.from({length:25},(_,i)=>1000-Math.hypot(i%5-2,Math.floor(i/5)-2)*2),{nx:5,ny:5},1)[0].label`,context),'H');
 console.log('Whole-degree temperatures, exact WW, IFS precipitation type and same-run supplemental fields: OK');
 console.log('Existing ICON grids, IFS schema, model transitions, precipitation and missing fields: OK');
 if(fs.existsSync('data/ifs.json')){

@@ -68,11 +68,18 @@ def reflectivity():
     return None
 
 def satellite():
-    xml=et.fromstring(get(SAT+'?service=WMS&request=GetCapabilities&version=1.3.0'))
+    layer=None;service=SAT
     # Work on advertised metadata, never assume the current clock is image time.
-    for elem in xml.iter():elem.tag=elem.tag.split('}')[-1]
-    layer=next((l for l in xml.iter('Layer') if (l.findtext('Name') or '')==SAT_LAYER),None)
-    if layer is None:raise ValueError('Licensed GeoColour product not advertised')
+    for endpoint in [SAT,'https://view.eumetsat.int/geoserver/wms']:
+        try:
+            xml=et.fromstring(get(endpoint+'?service=WMS&request=GetCapabilities&version=1.3.0'))
+            for elem in xml.iter():elem.tag=elem.tag.split('}')[-1]
+            layer=next((l for l in xml.iter('Layer') if (l.findtext('Name') or '').split(':')[-1]==SAT_LAYER.split(':')[-1] and (endpoint==SAT or (l.findtext('Name') or '').startswith('mtg_fd:'))),None)
+            if layer is not None:service=endpoint;break
+        except Exception as exc:print('GeoColour capabilities:',endpoint,exc,flush=True)
+    if layer is None:
+        print('Advertised GeoColour candidates:',[(l.findtext('Name'),l.findtext('Title')) for l in xml.iter('Layer') if 'geocolour' in ((l.findtext('Name') or '')+(l.findtext('Title') or '')).lower()][:10],flush=True)
+        raise ValueError('Licensed GeoColour product not advertised')
     dim=next((d for d in layer.findall('Dimension') if d.get('name','').lower()=='time'),None)
     if dim is None:raise ValueError('No satellite time dimension')
     times=[]
@@ -80,8 +87,8 @@ def satellite():
         t=timestamp(token)
         if NOW-dt.timedelta(hours=3)<=t<=NOW:times.append(t)
     if not times:raise ValueError('No recent satellite observation')
-    time=max(times);bounds=[-25.,34.,42.,71.];params=dict(service='WMS',version='1.1.1',request='GetMap',layers=SAT_LAYER,styles='',srs='EPSG:4326',bbox=','.join(map(str,bounds)),width=1000,height=600,format='image/png',transparent='true',time=time.strftime('%Y-%m-%dT%H:%M:%SZ'))
-    image=get(SAT+'?'+urllib.parse.urlencode(params))
+    time=max(times);bounds=[-25.,34.,42.,71.];params=dict(service='WMS',version='1.1.1',request='GetMap',layers=layer.findtext('Name'),styles='',srs='EPSG:4326',bbox=','.join(map(str,bounds)),width=1000,height=600,format='image/png',transparent='true',time=time.strftime('%Y-%m-%dT%H:%M:%SZ'))
+    image=get(service+'?'+urllib.parse.urlencode(params))
     if not image.startswith(b'\x89PNG\r\n\x1a\n'):raise ValueError('Satellite WMS returned no PNG')
     with Image.open(io.BytesIO(image)) as im:
         if im.size!=(1000,600):raise ValueError('Wrong satellite image size')

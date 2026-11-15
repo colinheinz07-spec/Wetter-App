@@ -3,6 +3,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 const http=require('node:http');
 const assert=require('node:assert/strict');
+const zlib=require('node:zlib');
 const {chromium}=require('playwright');
 const stations=JSON.parse(fs.readFileSync('data/stations.json','utf8'));
 const ifs=JSON.parse(fs.readFileSync('data/ifs.json','utf8'));
@@ -14,6 +15,7 @@ stations.radarImage={time:snapshotTime.toISOString(),bounds:[2,45,18,57],png:'iV
 const server=http.createServer((req,res)=>{
  const p=path.resolve('.','.'+new URL(req.url,'http://localhost').pathname);
  if(!p.startsWith(process.cwd()+path.sep)){res.writeHead(403).end();return}
+ if(p.endsWith('.json.gz')&&!fs.existsSync(p)&&fs.existsSync(p.slice(0,-3))){res.setHeader('Content-Type','application/gzip');fs.createReadStream(p.slice(0,-3)).pipe(zlib.createGzip()).pipe(res);return}
  if(!fs.existsSync(p)||!fs.statSync(p).isFile()){res.writeHead(404).end();return}
  res.setHeader('Content-Type',p.endsWith('.html')?'text/html':p.endsWith('.js')?'text/javascript':p.endsWith('.json')?'application/json':'application/octet-stream');
  fs.createReadStream(p).pipe(res);
@@ -56,14 +58,16 @@ const server=http.createServer((req,res)=>{
   await page.setViewportSize({width:390,height:844});
   await page.locator('.forecast').scrollIntoViewIfNeeded();
   if(process.env.WEATHER_TEST_SCREENSHOT)await page.screenshot({path:process.env.WEATHER_TEST_SCREENSHOT});
-  await page.evaluate(()=>{setPage('map');setMapSource('live');selectLiveLayer('reflectivity')});
+  await page.locator('[data-page="map"]').click();
+  await page.locator('[data-map-source="live"]').click();
+  await page.locator('#map-live-layer').selectOption('reflectivity');
   await page.waitForFunction(()=>document.querySelector('#map-data-notice').textContent==='Beobachtung');
   assert.match(await page.locator('#legend-unit').textContent(),/dBZ/);
   assert.equal(await page.locator('#map-time-controls').isVisible(),false);
-  await page.evaluate(()=>selectLiveLayer('satellite'));
+  await page.locator('#map-live-layer').selectOption('satellite');
   await page.waitForFunction(()=>document.querySelector('#map-data-notice').textContent==='Beobachtung');
   assert.match(await page.locator('#map-view-description').textContent(),/EUMETSAT/);
-  await page.evaluate(()=>setMapSource('model'));
+  await page.locator('[data-map-source="model"]').click();
   assert.equal(await page.locator('#map-time-controls').isVisible(),true);
   assert.deepEqual(errors,[]);console.log('Mobile widths, actual seven-day IFS forecast and radar image fallback: OK');
  }finally{await browser.close();server.close()}
