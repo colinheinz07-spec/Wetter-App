@@ -26,6 +26,7 @@
 .map-full-toolbar,.map-full-layer-tabs{display:none}.map-fullscreen-active{overflow:hidden}.page.map-fullscreen.active{display:flex;position:fixed;inset:0;z-index:1000;flex-direction:column;background:var(--page);padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);animation:none}.map-fullscreen>.page-title,.map-fullscreen>#map-source,.map-fullscreen>#map-region{display:none}.map-fullscreen .map-panel{display:flex;flex:1;min-height:0;flex-direction:column;padding:0;border:0;border-radius:0;margin:0;width:100%;max-width:none;background:var(--page);position:relative;gap:0}.map-fullscreen #map-normal-head,.map-fullscreen #map-settings{display:none}.map-fullscreen .map-full-toolbar{display:flex;align-items:center;justify-content:space-between;gap:7px;padding:9px 10px;flex-shrink:0}.map-full-toolbar button{height:38px;min-width:38px;border:1px solid #38516a;border-radius:11px;background:#172b41;display:grid;place-items:center;font-size:20px}.map-full-title{flex:1;min-width:0;text-align:center}.map-full-title strong{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:14px}.map-full-title small{display:block;font-size:10px;color:var(--muted)}.map-fullscreen .map-full-layer-tabs:not([hidden]){display:flex;gap:6px;padding:0 10px 8px;flex-shrink:0}.map-full-layer-tabs button{flex:1;font-size:12px;padding:9px 4px;background:#16283b;border-radius:9px;color:var(--muted);border:1px solid transparent}.map-full-layer-tabs button.active{color:var(--accent2);border-color:#6aa8df;background:#203e5b}.map-fullscreen .map-main{margin:0;flex:1;min-height:0;width:100%;max-width:none;border:0;border-radius:0;display:flex;align-items:stretch;justify-content:center}.map-fullscreen .map-main canvas{width:100%;height:100%;max-width:none;max-height:none;margin:0}.map-fullscreen .map-actions{margin:6px 10px 9px;flex-shrink:0}.map-fullscreen .map-sample{margin:6px 10px 0;min-height:38px;padding:6px 10px;flex-shrink:0}.map-fullscreen #map-info-panel{display:none}.map-fullscreen.map-info-open #map-info-panel{display:block;position:absolute;bottom:0;left:0;right:0;z-index:8;max-height:65%;overflow:auto;overscroll-behavior:contain;padding:14px 16px 20px;background:#111f31f8;border:1px solid #47617a;border-radius:18px 18px 0 0;box-shadow:0 -12px 40px #0008}.map-info-head{display:none}.map-fullscreen .map-info-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}.map-info-head button{padding:7px 10px;background:#20374c;border-radius:8px;font-size:15px}.map-info-summary{display:none}.map-fullscreen .map-info-summary{display:block;font-size:12px;color:var(--muted);margin-bottom:8px}.map-fullscreen .map-overlay{top:10px}
 @media(min-width:760px){.home-maps{grid-row:auto}.home-map-grid{grid-template-columns:1fr}.home-map-card canvas{max-height:190px;object-fit:cover}}.map-fullscreen.map-info-open #map-info-panel{display:flex;flex-direction:column}.map-fullscreen .map-info-head{order:-3}.map-fullscreen .map-info-summary{order:-2}.map-fullscreen .map-legend,.map-fullscreen .live-lightning-note{order:-1;flex-shrink:0}.map-fullscreen #map-info-panel>*{flex-shrink:0}
 .home-section-tabs button{flex:1}.home-section-tabs{margin-bottom:12px}.hero,.forecast,.home-maps{scroll-margin-top:12px}
+.place-search-row{display:flex;align-items:center;gap:8px;margin:4px 0 12px}.place-search-row input{flex:1;min-width:0;margin:0!important}.place-search-row button{border:1px solid #426482;background:#203b57;border-radius:10px;padding:12px 10px;font-size:12px;font-weight:650;white-space:nowrap}.place-search-status{font-size:12px;color:var(--muted);margin:0 0 8px}.place-source-note{font-size:11px;line-height:1.45;color:var(--muted);margin-top:12px}.place-source-note a{color:var(--accent2)}.location-result small{overflow-wrap:anywhere}.location-result>div{min-width:0}
 [hidden]{display:none!important}
 </style>
 </head>
@@ -107,7 +108,7 @@
   </main>
 </div>
 <div class="nav-wrap"><nav class="nav" id="navigation" aria-label="Hauptnavigation"></nav></div>
-<div id="location-dialog" class="dialog" role="dialog" aria-modal="true" aria-label="Ort auswählen"><div class="dialog-inner"><div class="dialog-title"><h2>Ort auswählen</h2><button id="close-dialog" class="icon-button" aria-label="Schließen"></button></div><input id="search-input" autocomplete="off" placeholder="Stadt oder Gemeinde suchen…"><div class="location-results" id="location-results"></div><p class="small muted" style="margin-top:14px">Beispielorte für die Designversion.</p></div></div>
+<div id="location-dialog" class="dialog" role="dialog" aria-modal="true" aria-label="Ort auswählen"><div class="dialog-inner"><div class="dialog-title"><h2>Ort suchen</h2><button id="close-dialog" class="icon-button" aria-label="Schließen"></button></div><div class="place-search-row"><input id="search-input" type="search" autocomplete="off" enterkeyhint="search" aria-label="Ort, Ortsteil oder Postleitzahl suchen" placeholder="Ort, Ortsteil oder PLZ…"><button type="button" id="place-online-search" aria-label="Weitere Orte online suchen">Online suchen</button></div><p id="place-search-status" class="place-search-status" role="status"></p><div class="location-results" id="location-results"></div><p class="place-source-note">Lokale Suche: deutsche Gemeinden und europäische Orte · Destatis / Natural Earth. Für Ortsteile, Weiler und PLZ zusätzlich online suchen (Suchbegriff wird an <a href="https://photon.komoot.io/" target="_blank" rel="noopener">Photon</a> gesendet). Online-Daten © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap-Mitwirkende</a>. Wetterwerte weiterhin Demo.</p></div></div>
 <script src="assets/basemap.js"></script>
 <script src="assets/geography.js"></script>
 <script>
@@ -172,7 +173,7 @@ const dailyExtras=[
 ];
 const fmt=n=>n.toLocaleString('de-DE',{minimumFractionDigits:1,maximumFractionDigits:1});
 function renderWeather(){
-  el('location-name').textContent=location.name;el('location-region').textContent=location.region+' · Deutschland';
+  el('location-name').textContent=location.name;el('location-region').textContent=[location.region,location.country||'Deutschland'].filter((v,i,a)=>v&&a.indexOf(v)===i).join(' · ');
   const h=hours[selectedHour],now=homeCurrentSample();const hero='<section class="panel hero"><div class="hero-head"><span class="tag">AKTUELL</span><span class="small" style="color:#c1d2e4">12:00 UTC · Demo</span></div><div class="hero-weather"><div><div class="temp">'+now.temp+'<span>°C</span></div><div class="condition">'+now.condition+'</div><div class="feels">Gefühlt '+now.feels+' °C</div></div>'+weather(now.icon,now.condition)+'</div><p class="hi-lo">Tiefstwert '+degrees(days[0][2])+' &nbsp;·&nbsp; Höchstwert '+degrees(days[0][3])+'</p><div class="metrics">'+metric('wind','Wind',now.wind,'km/h')+metric('wind','Böen',now.gust,'km/h')+metric('drop','Feuchte',81,'%')+'</div></section>';
   const hourly='<section class="panel hourly"><div class="section-head"><div><h2>Stundenverlauf</h2><p>Vorhersage für die nächsten Stunden</p></div><span class="badge">Stündlich</span></div><div class="hour-scroll">'+hours.map((a,i)=>'<button class="hour '+(selectedHour===i?'active':'')+'" data-hour="'+i+'" aria-pressed="'+(selectedHour===i)+'"><span class="hour-time">'+a[0]+'</span>'+weather(a[2],'')+'<strong>'+degrees(a[1])+'</strong><span class="rain">'+a[3]+' %</span></button>').join('')+'</div><div class="hour-detail" id="hour-detail">'+hourDetails(h)+'</div></section>';
   const warn='<button class="warning" id="go-warning">'+warningContent()+ui('chevron',18)+'</button>';
@@ -893,6 +894,7 @@ let mapFullScreen=false,mapFullReturn='map',mapFullScroll=0,mapInfoOpen=false;
 const homeMapLayers=[['radar','Niederschlagsradar','Niederschlag in deiner Region'],['temperature','Temperaturkarte','Lufttemperatur · 2 m'],['wind','Windkarte','Windgeschwindigkeit · 10 m']];
 const homePreviewCache=new Map();
 function homeLocationPoint(place){
+ if(Number.isFinite(place.lon)&&Number.isFinite(place.lat))return [place.lon,place.lat];
  const p=mapPlaceRecords.find(p=>p[0]===place.name)||mapPlaceRecords.find(p=>p[0].startsWith(place.name+' ('));
  return p?[p[1],p[2]]:null;
 }
@@ -902,7 +904,7 @@ function homeCurrentSample(){
  return {...s,temp:Math.round(s.temp),wind:Math.round(s.wind),gust:Math.round(s.wind*1.7),feels:Math.round(s.temp-3),condition:weather[0],icon:weather[1]};
 }
 function homeMapCards(){
- return '<section class="panel home-maps"><div class="section-head"><div><h2>Aktuelle Wetterkarten</h2><p>'+location.name+' und Umgebung · Demo</p></div><span class="badge">Karten</span></div><div class="home-map-grid">'+homeMapLayers.map(([id,title,desc])=>'<button class="home-map-card" data-home-map="'+id+'" aria-label="'+title+' im Vollbild öffnen"><div class="home-map-head"><div><strong>'+title+'</strong><small>'+desc+'</small></div><span aria-hidden="true">⛶</span></div><canvas id="home-map-'+id+'" width="360" height="160" aria-hidden="true"></canvas><div class="home-map-foot"><span id="home-value-'+id+'">Demo</span><b>Öffnen ›</b></div></button>').join('')+'</div></section>';
+ return '<section class="panel home-maps"><div class="section-head"><div><h2>Aktuelle Wetterkarten</h2><p>'+placeText(location.name)+' und Umgebung · Demo</p></div><span class="badge">Karten</span></div><div class="home-map-grid">'+homeMapLayers.map(([id,title,desc])=>'<button class="home-map-card" data-home-map="'+id+'" aria-label="'+title+' im Vollbild öffnen"><div class="home-map-head"><div><strong>'+title+'</strong><small>'+desc+'</small></div><span aria-hidden="true">⛶</span></div><canvas id="home-map-'+id+'" width="360" height="160" aria-hidden="true"></canvas><div class="home-map-foot"><span id="home-value-'+id+'">Demo</span><b>Öffnen ›</b></div></button>').join('')+'</div></section>';
 }
 function previewBounds(point){
  const [lon,lat]=point;return {west:lon-2.6,east:lon+2.6,south:lat-1.55,north:lat+1.55,w:360,h:160};
@@ -925,7 +927,7 @@ function renderHomeMaps(){
  document.querySelectorAll('[data-home-map]').forEach(b=>b.addEventListener('click',()=>openHomeMap(b.dataset.homeMap)));
  const point=homeLocationPoint(location);if(!point)return;
  for(const [id] of homeMapLayers){
-  const canvas=el('home-map-'+id),key=location.name+'/'+id;
+  const canvas=el('home-map-'+id),key=location.name+'/'+point.join(',')+'/'+id;
   if(!homePreviewCache.has(key)){
    const preview=document.createElement('canvas');preview.width=360;preview.height=160;previewField(preview,id,point,location.name);homePreviewCache.set(key,preview);
    if(homePreviewCache.size>24)homePreviewCache.delete(homePreviewCache.keys().next().value);
@@ -957,6 +959,7 @@ function openHomeMap(id){
  stopPlay();endMapGesture();mapSource='live';liveLayer=id;liveScenario='winter';liveMinute=0;terrainMode='weather-relief';
  el('map-live-layer').value=id;el('map-live-scenario').value=liveScenario;el('map-terrain-mode').value=terrainMode;
  mapRegion='Deutschland';mapZoom=3.2;const point=homeLocationPoint(location);mapCenter=null;mapPoint=point;mapPointName=point?location.name:'';
+ if(point){const b=baseBounds();if(point[0]<b.west||point[0]>b.east||point[1]<b.south||point[1]>b.north){mapRegion='Europa';mapZoom=13}}
  // Use the selected town as the camera anchor; adjust against full-size bounds.
  if(point)centerView(...point);
  enterMapFull('weather',point);
@@ -975,6 +978,130 @@ function bindFullMap(){
  document.querySelectorAll('[data-full-layer]').forEach(b=>b.addEventListener('click',()=>{stopPlay();liveLayer=b.dataset.fullLayer;el('map-live-layer').value=liveLayer;refreshMap()}));
  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&mapFullScreen){if(mapInfoOpen)setMapInfo(false);else exitMapFull()}});
  if(typeof window!=='undefined')window.addEventListener('resize',()=>{if(mapFullScreen)scheduleMap()});
+}
+
+// Fast offline municipality lookup plus explicit Photon/OpenStreetMap
+// fallback for villages, hamlets, districts and postcodes. The public Photon
+// endpoint is for low-volume demo use; deploy a dedicated instance later.
+const locationOnlineEndpoint='https://photon.komoot.io/api';
+let locationIndex=null,placeSearchResults=[],placeOnlineResults=[],placeQuery='',placeRequest=null,placeRequestId=0,placeStatus='';
+const placeDetailsCache=new Map(),placeOnlineCache=new Map();
+function placeText(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c])}
+function placeNorm(s){
+ return String(s??'').toLocaleLowerCase('de-DE').replace(/ä/g,'ae').replace(/ö/g,'oe').replace(/ü/g,'ue').replace(/ß/g,'ss').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^\p{L}\p{N}]+/gu,' ').trim();
+}
+function placePlain(s){return String(s??'').toLocaleLowerCase('de-DE').replace(/ß/g,'ss').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^\p{L}\p{N}]+/gu,' ').trim()}
+const countryNames={DE:'Deutschland',AT:'Österreich',CH:'Schweiz',FR:'Frankreich',BE:'Belgien',NL:'Niederlande',LU:'Luxemburg',DK:'Dänemark',PL:'Polen',CZ:'Tschechien',GB:'Vereinigtes Königreich',IT:'Italien',ES:'Spanien',NO:'Norwegen',SE:'Schweden',FI:'Finnland',IE:'Irland'};
+function countryName(code,fallback=''){
+ if(countryNames[code])return countryNames[code];try{return new Intl.DisplayNames(['de'],{type:'region'}).of(code)||fallback||code}catch{return fallback||code||''}
+}
+function supportedPlace(lon,lat){return Number.isFinite(lon)&&Number.isFinite(lat)&&lon>=-25&&lon<=42&&lat>=34&&lat<=71}
+function placeId(name,lon,lat){return placeNorm(name)+'@'+lon.toFixed(5)+','+lat.toFixed(5)}
+function getLocationIndex(){
+ if(locationIndex)return locationIndex;
+ const germanNames=new Set(BASEMAP.places.map(p=>placeNorm(p[0])));
+ return locationIndex=mapPlaceRecords.filter(p=>supportedPlace(p[1],p[2])&&(!p[4]||p[4]!=='DE'||!germanNames.has(placeNorm(p[0])))).map(p=>{
+  const [name,lon,lat,pop,cc]=p,countryCode=cc||'DE',alias=p[6]||'';
+  return {id:placeId(name,lon,lat),name,lon,lat,pop:pop||0,countryCode,norm:placeNorm(name),plain:placePlain(name),alias:placeNorm(alias),source:'offline'};
+ });
+}
+function placeRank(p,q,plain){
+ if(p.norm===q||p.plain===plain||p.alias===q)return 0;
+ // Parenthetical names are common in the German municipality register.
+ if(p.norm.startsWith(q+' ')||p.plain.startsWith(plain+' '))return 1;
+ if(p.norm.startsWith(q)||p.plain.startsWith(plain)||p.alias.startsWith(q))return 2;
+ if(p.norm.includes(' '+q)||p.plain.includes(' '+plain))return 3;
+ if(p.norm.includes(q)||p.plain.includes(plain)||p.alias.includes(q))return 4;
+ return Infinity;
+}
+function offlinePlaceDetails(p){
+ if(p.region)return p;
+ if(placeDetailsCache.has(p.id))return placeDetailsCache.get(p.id);
+ const district=p.countryCode==='DE'?districtAt(p.lon,p.lat):null;
+ const state=district?basemapData().states.find(s=>s.id===district.id.slice(0,2)):null;
+ const result={...p,region:state?.name||countryName(p.countryCode),district:district?.name===p.name?'':district?.name||'',country:countryName(p.countryCode),kind:p.countryCode==='DE'?'Gemeinde':'Ort'};
+ if(placeDetailsCache.size>1500)placeDetailsCache.delete(placeDetailsCache.keys().next().value);
+ placeDetailsCache.set(p.id,result);return result;
+}
+function searchOfflinePlaces(query,limit=35){
+ const q=placeNorm(query),plain=placePlain(query);if(q.length<2)return [];
+ const hits=[];
+ for(const p of getLocationIndex()){const rank=placeRank(p,q,plain);if(Number.isFinite(rank))hits.push({p,rank})}
+ hits.sort((a,b)=>a.rank-b.rank||Number(b.p.countryCode==='DE')-Number(a.p.countryCode==='DE')||b.p.pop-a.p.pop||a.p.name.localeCompare(b.p.name,'de'));
+ return hits.slice(0,limit).map(h=>offlinePlaceDetails(h.p));
+}
+function defaultLocationResults(){
+ const choices=[location,...locations],seen=new Set(),out=[];
+ for(const l of choices){
+  const point=homeLocationPoint(l);if(!point)continue;
+  const id=placeId(l.name,...point);if(seen.has(id))continue;seen.add(id);
+  out.push({...l,id,lon:point[0],lat:point[1],countryCode:l.countryCode||'DE',country:l.country||'Deutschland',region:l.region||'Deutschland',kind:l.kind||'Ort'});
+ }
+ return out;
+}
+function normalizePhoton(data){
+ const out=[];
+ for(const feature of data?.features||[]){
+  const p=feature.properties||{},coords=feature.geometry?.coordinates;
+  if(feature.geometry?.type!=='Point'||!Array.isArray(coords)||!supportedPlace(coords[0],coords[1])||typeof p.name!=='string'||!p.name.trim())continue;
+  const [lon,lat]=coords,cc=String(p.countrycode||'').toUpperCase();
+  const tags={city:'Stadt',town:'Stadt',village:'Dorf',hamlet:'Weiler',suburb:'Stadtteil',neighbourhood:'Ortsteil',quarter:'Ortsteil',locality:'Ort',municipality:'Gemeinde'};
+  const name=/^\d+$/.test(p.name.trim())?(p.city||p.district||''):p.name.trim();
+  if(!name)continue;
+  const country=countryName(cc,p.country),region=p.state||p.county||country;
+  out.push({id:placeId(name,lon,lat),name,lon,lat,countryCode:cc,country,region,district:[p.district,p.city,p.county].filter(x=>x&&x!==name&&x!==region).filter((x,i,a)=>a.indexOf(x)===i).join(' · '),postcode:String(p.postcode||''),kind:tags[p.osm_value]||(p.type==='district'?'Ortsteil':'Ort'),source:'online'});
+ }
+ return out;
+}
+function combinePlaces(local,online){
+ const out=[...local];
+ for(const p of online)if(!out.some(q=>placeNorm(q.name)===placeNorm(p.name)&&Math.hypot(q.lon-p.lon,q.lat-p.lat)<.012))out.push(p);
+ return out;
+}
+function placeSubtitle(p){
+ return [p.kind,p.district,p.region,p.country,p.postcode].filter(Boolean).filter((x,i,a)=>a.indexOf(x)===i).join(' · ');
+}
+function selectWeatherPlace(p){
+ const temp=demoObservationAdapter.sample(p.lon,p.lat,0,'winter').temp;
+ location={name:p.name,region:p.region||p.country||'Europa',country:p.country||countryName(p.countryCode),countryCode:p.countryCode,lon:p.lon,lat:p.lat,district:p.district||'',kind:p.kind,offset:clamp(Math.round(temp-7),-15,15)};
+ selectedHour=0;openDay=-1;closeDialog();renderWeather();setPage('weather');
+}
+function cancelPlaceLookup(){
+ placeRequestId++;if(placeRequest){placeRequest.abort();placeRequest=null}
+}
+function drawPlaceResults(){
+ const list=combinePlaces(placeSearchResults,placeOnlineResults);
+ const container=el('location-results');container.replaceChildren();
+ if(!list.length){const note=document.createElement('p');note.className='empty';note.textContent=placeQuery.length<2?'Mindestens zwei Zeichen eingeben.':'Keine lokalen Treffer. Versuche die Online-Suche.';container.appendChild(note)}
+ for(const p of list){
+  const button=document.createElement('button');button.className='location-result';button.type='button';
+  const labels=document.createElement('div'),name=document.createElement('strong'),sub=document.createElement('small');name.textContent=p.name;sub.textContent=placeSubtitle(p);labels.append(name,sub);button.append(labels);button.addEventListener('click',()=>selectWeatherPlace(p));container.appendChild(button);
+ }
+ el('place-search-status').textContent=placeStatus||(!placeQuery?'Aktuelle und vorgeschlagene Orte':placeSearchResults.length+' lokale Treffer'+(placeSearchResults.length===35?' (Auswahl)':''));
+ el('place-online-search').disabled=placeQuery.length<2||!!placeRequest;
+}
+function renderLocations(){
+ cancelPlaceLookup();placeQuery=el('search-input').value.trim();placeOnlineResults=[];placeStatus='';
+ placeSearchResults=!placeQuery?defaultLocationResults():searchOfflinePlaces(placeQuery);
+ if(placeOnlineCache.has(placeNorm(placeQuery)))placeOnlineResults=placeOnlineCache.get(placeNorm(placeQuery));
+ drawPlaceResults();
+}
+async function searchOnlinePlaces(){
+ const query=el('search-input').value.trim();if(query.length<2||placeRequest)return;
+ if(query!==placeQuery)renderLocations();
+ const key=placeNorm(query);if(placeOnlineCache.has(key)){placeOnlineResults=placeOnlineCache.get(key);placeStatus='Online-Treffer aus dem Suchcache';drawPlaceResults();return}
+ const id=++placeRequestId,controller=new AbortController();placeRequest=controller;placeStatus='Weitere Orte werden online gesucht …';drawPlaceResults();
+ const timeout=setTimeout(()=>controller.abort(),9000);
+ try{
+  const url=new URL(locationOnlineEndpoint);url.searchParams.set('q',query);url.searchParams.set('lang','de');url.searchParams.set('limit','30');url.searchParams.set('bbox','-25,34,42,71');
+  for(const layer of ['city','district','locality','county'])url.searchParams.append('layer',layer);
+  const response=await fetch(url.toString(),{mode:'cors',credentials:'omit',signal:controller.signal});
+  if(!response.ok)throw Error('HTTP '+response.status);
+  const found=normalizePhoton(await response.json());if(id!==placeRequestId)return;
+  placeOnlineResults=found;placeOnlineCache.set(key,found);if(placeOnlineCache.size>40)placeOnlineCache.delete(placeOnlineCache.keys().next().value);
+  placeStatus=found.length?found.length+' Online-Treffer · OpenStreetMap':'Keine zusätzlichen Orte online gefunden.';
+ }catch(e){if(id===placeRequestId)placeStatus='Online-Suche nicht erreichbar. Lokale Ortsdaten bleiben verfügbar.'}
+ finally{clearTimeout(timeout);if(id===placeRequestId){placeRequest=null;drawPlaceResults()}}
 }
 
 
@@ -1343,11 +1470,10 @@ const expertGroups=[
 el('expert-data').innerHTML=expertGroups.map(expertParameterGroup).join('');
 document.querySelectorAll('[data-map-layer]').forEach(b=>b.addEventListener('click',()=>openMapLayer(b.dataset.mapLayer)));
 document.querySelectorAll('[data-expert-model]').forEach(b=>b.addEventListener('click',()=>openMapLayer(null,b.dataset.expertModel)));
-function renderLocations(){let q=el('search-input').value.trim().toLowerCase();let list=locations.filter(l=>(l.name+' '+l.region).toLowerCase().includes(q));el('location-results').innerHTML=list.map(l=>'<button class="location-result" data-location="'+l.name+'"><div><strong>'+l.name+'</strong><small>'+l.region+'</small></div>'+ui('pin',18)+'</button>').join('')||'<p class="empty">Kein Beispielort gefunden.</p>';document.querySelectorAll('[data-location]').forEach(b=>b.addEventListener('click',()=>{location=locations.find(l=>l.name===b.dataset.location);selectedHour=0;openDay=-1;closeDialog();renderWeather();setPage('weather')}))}
 function openDialog(){el('search-input').value='';renderLocations();el('location-dialog').classList.add('open');el('search-input').focus()}
-function closeDialog(){el('location-dialog').classList.remove('open');el('search-open').focus()}
+function closeDialog(){cancelPlaceLookup();el('location-dialog').classList.remove('open');el('search-open').focus()}
 el('pin-icon').innerHTML=ui('pin',23);el('loc-chevron').innerHTML=ui('chevron',16);el('search-open').innerHTML=ui('search',22);el('close-dialog').innerHTML=ui('close',22);el('time-icon').innerHTML=ui('clock',21);
-el('location-open').addEventListener('click',openDialog);el('search-open').addEventListener('click',openDialog);el('close-dialog').addEventListener('click',closeDialog);el('search-input').addEventListener('input',renderLocations);el('location-dialog').addEventListener('click',e=>{if(e.target===el('location-dialog'))closeDialog()});document.addEventListener('keydown',e=>{if(e.key==='Escape'&&el('location-dialog').classList.contains('open'))closeDialog()});
+el('location-open').addEventListener('click',openDialog);el('search-open').addEventListener('click',openDialog);el('close-dialog').addEventListener('click',closeDialog);el('search-input').addEventListener('input',renderLocations);el('place-online-search').addEventListener('click',searchOnlinePlaces);el('search-input').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();searchOnlinePlaces()}});el('location-dialog').addEventListener('click',e=>{if(e.target===el('location-dialog'))closeDialog()});document.addEventListener('keydown',e=>{if(e.key==='Escape'&&el('location-dialog').classList.contains('open'))closeDialog()});
 renderWeather();renderMap();
 })();
 </script>
