@@ -65,9 +65,10 @@ const server=http.createServer((req,res)=>{
   assert.match(await page.locator('#legend-unit').textContent(),/dBZ/);
   assert.equal(await page.locator('#map-time-controls').isVisible(),false);
   await page.locator('#map-live-layer').selectOption('satellite');
-  await page.waitForFunction(()=>document.querySelector('#map-data-notice').textContent==='Beobachtung');
+  await page.waitForFunction(()=>document.querySelector('#map-data-notice').textContent==='Beobachtung'&&document.querySelector('#map-view-description').textContent.includes('EUMETSAT'));
   assert.match(await page.locator('#map-view-description').textContent(),/EUMETSAT/);
   await page.locator('[data-map-source="model"]').click();
+  await page.waitForFunction(()=>!document.querySelector('#map-time-controls').hidden);
   assert.equal(await page.locator('#map-time-controls').isVisible(),true);
   assert.deepEqual(errors,[]);console.log('Mobile widths, actual seven-day IFS forecast and radar image fallback: OK');
  }finally{await browser.close();server.close()}

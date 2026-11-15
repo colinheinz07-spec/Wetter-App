@@ -1616,7 +1616,7 @@ function renderRealWeather(){
 }
 function initWeatherData(){
  weatherRealEnabled=true;renderWeather();
- const update=()=>{for(const model of forecastPriority.filter(m=>m!=='GFS'||realModelCache.has('GFS')||mapModel==='GFS'))fetchRealModel(model,true);fetchRealWeatherCodes();fetchRealModel('IFS').then(()=>{if(!realModelCache.has('IFS'))fetchRealModel('GFS')})};update();fetchStationData();
+ const update=()=>{for(const model of forecastPriority.filter(m=>m!=='GFS'||realModelCache.has('GFS')||mapModel==='GFS'))fetchRealModel(model,true);fetchRealWeatherCodes();fetchRealModel('IFS').then(()=>{if(!chooseLocationModel(Date.now()+6*86400000,homeLocationPoint(location),true,['IFS']))fetchRealModel('GFS')})};update();fetchStationData();
  setInterval(()=>{if(!document.hidden)update()},30*60000);setInterval(()=>{if(!document.hidden)fetchStationData()},5*60000);
 }
 function renderRealExpert(){
