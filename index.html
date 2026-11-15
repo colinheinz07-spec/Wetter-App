@@ -27,6 +27,7 @@
 @media(min-width:760px){.home-maps{grid-row:auto}.home-map-grid{grid-template-columns:1fr}.home-map-card canvas{max-height:190px;object-fit:cover}}.map-fullscreen.map-info-open #map-info-panel{display:flex;flex-direction:column}.map-fullscreen .map-info-head{order:-3}.map-fullscreen .map-info-summary{order:-2}.map-fullscreen .map-legend,.map-fullscreen .live-lightning-note{order:-1;flex-shrink:0}.map-fullscreen #map-info-panel>*{flex-shrink:0}
 .home-section-tabs button{flex:1}.home-section-tabs{margin-bottom:12px}.hero,.forecast,.home-maps{scroll-margin-top:12px}
 .place-search-row{display:flex;align-items:center;gap:8px;margin:4px 0 12px}.place-search-row input{flex:1;min-width:0;margin:0!important}.place-search-row button{border:1px solid #426482;background:#203b57;border-radius:10px;padding:12px 10px;font-size:12px;font-weight:650;white-space:nowrap}.place-search-status{font-size:12px;color:var(--muted);margin:0 0 8px}.place-source-note{font-size:11px;line-height:1.45;color:var(--muted);margin-top:12px}.place-source-note a{color:var(--accent2)}.location-result small{overflow-wrap:anywhere}.location-result>div{min-width:0}
+.map-temperature-days{display:flex;gap:5px;margin:0 0 9px}.map-temperature-days button{flex:1;min-width:0;background:#172e45;color:var(--muted);border:1px solid #34536c;border-radius:9px;padding:8px 3px;font-size:11px;line-height:1.3}.map-temperature-days button.active{color:var(--accent2);border-color:#72b1ed;background:#234561}.map-fullscreen .map-temperature-days{flex-shrink:0;margin:0 10px 7px}.map-nowcast-key{position:relative;display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin:6px 4px 0;padding-bottom:2px}.map-nowcast-key .now-anchor{position:absolute;left:57.1429%;transform:translateX(-50%);color:var(--text);font-weight:650}.map-nowcast-key .forecast-end{color:#ffc96c}.map-fullscreen .map-nowcast-key{margin:2px 12px 0;flex-shrink:0}.nowcast-status{font-weight:650;color:#ffc96c}
 [hidden]{display:none!important}
 </style>
 </head>
@@ -70,13 +71,14 @@
             <label class="live-overlay"><input type="checkbox" id="map-live-lightning"> Blitze überlagern</label>
             <label class="live-overlay"><input type="checkbox" id="map-live-symbols" checked> Wintersymbole</label>
           </div>
-          <p class="live-map-note">Simulierte Beobachtungen · keine aktuellen Messdaten. Die Zeitachse zeigt die letzten zwei Stunden der Demo.</p>
+          <p class="live-map-note">Simulierte Beobachtungen und Prognosen · keine aktuellen Messdaten. Radar: 2 Stunden zurück, 90 Minuten voraus.</p>
         </div>
         <div class="map-run-line" id="map-run-info"><span id="map-valid"></span><span id="map-data-notice">Testdaten · keine Vorhersage</span></div>
         <div id="map-interval" class="map-interval"></div>
         <div class="map-search-wrap"><input id="map-search" type="search" placeholder="Ort oder Landkreis auf Karte finden…" aria-label="Ort oder Landkreis suchen" autocomplete="off"><div id="map-search-results" class="map-search-results"></div></div>
         <div class="map-display-options"><label><input id="map-show-districts" type="checkbox" checked> Kreise / Gemeinden</label><label><input id="map-show-places" type="checkbox" checked> Orte</label><label><input id="map-show-roads" type="checkbox" checked> Straßen</label><label><input id="map-show-terrain" type="checkbox" checked> Gebirge / Gipfel</label><label><input id="map-show-water" type="checkbox" checked> Gewässer</label></div>
         </div>
+        <div class="map-temperature-days" id="map-temperature-days" aria-label="Tag der Temperaturkarte" hidden><button data-temperature-day="0" aria-pressed="true" class="active">Heute</button><button data-temperature-day="1" aria-pressed="false">Morgen</button><button data-temperature-day="2" aria-pressed="false">Übermorgen</button></div>
         <div class="map-main"><canvas id="model-canvas" width="640" height="760" aria-label="Farbige Wetterkarte mit Ländergrenzen"></canvas><div class="map-overlay"><span id="map-overlay-model">ICON-D2</span><span>DEMO</span></div><div class="map-zoom"><button id="map-zoom-plus" aria-label="Hineinzoomen">+</button><span class="zoom-label" id="map-zoom-level">1.0×</span><button id="map-zoom-minus" aria-label="Herauszoomen">−</button><button id="map-zoom-reset" aria-label="Karte zurücksetzen">↺</button></div></div>
         <div id="map-info-panel"><div class="map-info-head"><h2>Karteninformationen</h2><button id="map-info-close" aria-label="Informationen schließen">×</button></div><p id="map-info-summary" class="map-info-summary"></p>
         <div class="map-hint" id="map-gesture-hint">Ziehen zum Verschieben · Zwei Finger zum Zoomen · Antippen zum Ablesen eines Modellrasterwerts</div>
@@ -90,6 +92,7 @@
         <p class="map-caption">Geografie: <a href="https://www.naturalearthdata.com/" target="_blank" rel="noopener">Natural Earth</a> (europäische Staatsgrenzen 1:50 Mio., Orte, Gebirgsnamen, Gipfel und Gewässer, generalisiert); © GeoBasis-DE / <a href="https://www.bkg.bund.de" target="_blank" rel="noopener">BKG</a> 2019, VG250 (31.12.2018, Geometrie vereinfacht, Staatsgrenze aus Bundesländern abgeleitet), <a href="https://www.govdata.de/dl-de/by-2-0" target="_blank" rel="noopener">dl-de/by-2-0</a>. Orte: <a href="https://www.destatis.de/DE/Themen/Gesellschaft-Umwelt/Bevoelkerung/Regionales/Gemeindeverzeichnis/_inhalt.html" target="_blank" rel="noopener">Statistisches Bundesamt (Destatis)</a>, Gemeindeverzeichnis, verändert/gerundet. Die Wetterfelder und Raster sind vollständig simuliert.</p>
         </div>
         <div class="map-sample" id="map-sample"><span>Tippe auf die Karte, um einen Beispielwert abzulesen.</span></div>
+        <div class="map-nowcast-key" id="map-nowcast-key" hidden><span>−120 Min.</span><button class="now-anchor" id="map-nowcast-now" aria-label="Zur aktuellen Radarzeit zurückspringen" style="background:none;border:0;padding:0;font:inherit;color:var(--text);text-decoration:underline">Jetzt</button><span class="forecast-end">+90 Min. · Prognose</span></div>
         <div class="map-actions" id="map-time-controls"><button class="map-play" id="map-play" aria-label="Vorhersage abspielen">▶</button><div class="map-control"><span id="time-icon"></span><input type="range" id="map-time" min="0" max="48" value="0" aria-label="Vorhersagezeit"><strong id="map-time-label">+0 Std.</strong></div></div>
       </div>
     </section>
@@ -690,10 +693,24 @@ const liveLayers={
  wind:{label:'Aktueller Wind · 10 m',unit:'km/h',stops:[0,5,10,20,30,40,60,80,100],colors:['#e6f1df','#92d7b9','#53bfaa','#3e99b6','#6654b4','#b74d9d','#f18b60','#f4d76b','#9e3e43']},
  lightning:{label:'Blitzaktivität · letzte 30 Min.',unit:'Alter',stops:['0–5 min','5–15 min','15–30 min'],colors:['#ffec55','#ffaa3b','#e97143']}
 };
-let mapSource='model',liveLayer='radar',liveScenario='winter',liveMinute=0,liveLightning=false,liveSymbols=true;
+let mapSource='model',liveLayer='radar',liveScenario='winter',liveMinute=0,liveLightning=false,liveSymbols=true,liveTempDay=0,liveTempHour=12;
 const liveTimeBases={winter:Date.UTC(2026,10,15,12,0),summer:Date.UTC(2026,6,15,14,0)};
+const nowcastLayers=new Set(['radar','types','snowfall']);
+function liveMaxMinute(){return nowcastLayers.has(liveLayer)?90:0}
+function liveBaseHour(){return liveScenario==='summer'?14:12}
+function liveDisplayMinute(){return liveLayer==='temperature'?liveTempDay*1440+(liveTempHour-liveBaseHour())*60:clamp(liveMinute,-120,liveMaxMinute())}
+function liveIsFuture(){return liveDisplayMinute()>0}
+function liveTimeKind(){return liveIsFuture()?(liveLayer==='temperature'?'Temperaturprognose':'Radarprognose'):'Beobachtung'}
+function resetLiveTime(){liveMinute=0;liveTempDay=0;liveTempHour=liveBaseHour()}
 const liveGrid=.025;
 const liveGauss=(x,y,cx,cy,sx,sy)=>Math.exp(-.5*((x-cx)/sx)**2-.5*((y-cy)/sy)**2);
+let thermalShiftMinute=null,thermalShiftScenario='',thermalShiftValue=0;
+function demoThermalShift(minute,scenario){
+ if(thermalShiftMinute===minute&&thermalShiftScenario===scenario)return thermalShiftValue;
+ const t=minute/60,baseHour=scenario==='summer'?14:12,amplitude=scenario==='summer'?5.5:3.2;
+ const dailyCycle=h=>Math.cos((h-14.5)*Math.PI/12);
+ thermalShiftMinute=minute;thermalShiftScenario=scenario;return thermalShiftValue=amplitude*(dailyCycle(baseHour+t)-dailyCycle(baseHour))+(scenario==='winter'?-1.7:.8)*t/24;
+}
 function liveObservation(lon,lat,minute=liveMinute,scenario=liveScenario){
  const t=minute/60,dx=lon-10,dy=lat-51;
  const texture=.68+.32*Math.sin(lon*19+lat*13)*Math.cos(lat*25-lon*7);
@@ -715,6 +732,8 @@ function liveObservation(lon,lat,minute=liveMinute,scenario=liveScenario){
   freezing=liveGauss(lon,lat,8.9,51.65,.34,.20)>.48;
   cover=offlineHeight(lon,lat)<-5?0:Math.max(0,Math.min(110,(-temp+.2)*2.4+Math.max(0,h-650)*.025));
  }
+ // Hourly temperature evolution, anchored to the original observation.
+ temp+=demoThermalShift(minute,scenario);
  if(rate<.1)rate=0;
  const type=rate===0?'none':hail?'hail':freezing?'freezing':temp<=-.7?'snow':temp<=1.1?'mixed':'rain';
  const wind=Math.max(0,12+19*liveGauss(lon,lat,7.8+t*.2,53.9,3,1.8)+9*liveGauss(lon,lat,12,48,2.1,1.1)+5*Math.sin(lon*.8+lat*.6+t*.3));
@@ -738,7 +757,7 @@ const demoObservationAdapter={
  kind:'demo',sample:(lon,lat,minute,scenario)=>liveObservation(Math.round(lon/liveGrid)*liveGrid,Math.round(lat/liveGrid)*liveGrid,minute,scenario),
  strikes:(minute,scenario)=>scenario==='summer'?demoStrikes.filter(s=>s.minute<=minute&&s.minute>minute-30):[]
 };
-function liveTime(){return new Date(liveTimeBases[liveScenario]+liveMinute*60000)}
+function liveTime(){return new Date(liveTimeBases[liveScenario]+liveDisplayMinute()*60000)}
 function liveColor(layer,s){
  const p=liveLayers[layer];let i;
  if(layer==='temperature'||layer==='wind'){
@@ -769,7 +788,7 @@ function drawLiveBase(ctx,b){
 }
 function drawLiveField(ctx,b,fast){
  if(liveLayer==='lightning')return;
- const w=Math.round(b.w/(fast?7:2.5)),h=Math.round(b.h/(fast?7:2.5)),key=[liveLayer,liveScenario,liveMinute,b.west,b.east,b.south,b.north,w,h].join('/');
+ const minute=liveDisplayMinute(),w=Math.round(b.w/(fast?7:2.5)),h=Math.round(b.h/(fast?7:2.5)),key=[liveLayer,liveScenario,minute,b.west,b.east,b.south,b.north,w,h].join('/');
  if(!liveBuffer)liveBuffer=document.createElement('canvas');
  if(key!==liveRasterKey){
   liveRasterKey=key;liveBuffer.width=w;liveBuffer.height=h;
@@ -778,7 +797,7 @@ function drawLiveField(ctx,b,fast){
    const lat=b.north-(j+.5)/h*(b.north-b.south),iy=Math.round(lat/liveGrid);
    for(let i=0;i<w;i++){
     const lon=b.west+(i+.5)/w*(b.east-b.west),ix=Math.round(lon/liveGrid),k=ix+':'+iy;
-    if(!samples.has(k))samples.set(k,liveColor(liveLayer,demoObservationAdapter.sample(lon,lat,liveMinute,liveScenario)));
+    if(!samples.has(k))samples.set(k,liveColor(liveLayer,demoObservationAdapter.sample(lon,lat,minute,liveScenario)));
     const color=samples.get(k);if(!color)continue;
     const rgb=rgbForLive(color),n=(j*w+i)*4;
     im.data[n]=rgb[0];im.data[n+1]=rgb[1];im.data[n+2]=rgb[2];im.data[n+3]=layerAlpha(liveLayer);
@@ -788,7 +807,7 @@ function drawLiveField(ctx,b,fast){
  }
  ctx.save();ctx.imageSmoothingEnabled=false;ctx.drawImage(liveBuffer,0,0,b.w,b.h);ctx.restore();
 }
-function drawLiveWindArrows(ctx,b,minute=liveMinute,scenario=liveScenario,spacing=80,scale=1){
+function drawLiveWindArrows(ctx,b,minute=liveDisplayMinute(),scenario=liveScenario,spacing=80,scale=1){
  ctx.save();ctx.lineWidth=1.6*scale;ctx.strokeStyle='#1c2b3dcc';ctx.lineCap='round';ctx.lineJoin='round';
  for(let y=spacing/2;y<b.h;y+=spacing)for(let x=spacing/2;x<b.w;x+=spacing){
   const [lon,lat]=lonlat(x,y,b),s=demoObservationAdapter.sample(lon,lat,minute,scenario);
@@ -831,7 +850,7 @@ function drawLiveSymbols(ctx,b){
   for(const [ox,oy] of [[0,0],[-.23,0],[.23,0],[0,-.23],[0,.23]]){
    const lon=(i+ox)*dx,lat=(j+oy)*dy,[x,y]=xy(lon,lat,b);
    if(x<12||x>b.w-12||y<12||y>b.h-12)continue;
-   const s=demoObservationAdapter.sample(lon,lat,liveMinute,liveScenario);
+   const s=demoObservationAdapter.sample(lon,lat,liveDisplayMinute(),liveScenario);
    if(!['snow','mixed','freezing'].includes(s.type)||s.rate<.5||liveLayer==='snowfall'&&s.snowfall<.5)continue;
    best={x,y,s};break;
   }
@@ -846,41 +865,67 @@ function drawLiveSymbols(ctx,b){
  ctx.restore();return count;
 }
 function drawLiveStrikes(ctx,b){
- if(liveLayer!=='lightning'&&!liveLightning)return;
- ctx.save();const strikes=demoObservationAdapter.strikes(liveMinute,liveScenario);
+ if(liveIsFuture()||liveLayer!=='lightning'&&!liveLightning)return;
+ const minute=liveDisplayMinute();ctx.save();const strikes=demoObservationAdapter.strikes(minute,liveScenario);
  for(const s of strikes){
   if(s.lon<b.west||s.lon>b.east||s.lat<b.south||s.lat>b.north)continue;
-  const [x,y]=xy(s.lon,s.lat,b),age=liveMinute-s.minute,r=mapZoom>=5?4:3;
+  const [x,y]=xy(s.lon,s.lat,b),age=minute-s.minute,r=mapZoom>=5?4:3;
   ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fillStyle=liveLayers.lightning.colors[age<=5?0:age<=15?1:2];ctx.fill();ctx.strokeStyle='#4f3322';ctx.lineWidth=1;ctx.stroke();
  }
  ctx.restore();
 }
 function liveSampleText(lon,lat){
- const s=demoObservationAdapter.sample(lon,lat,liveMinute,liveScenario),f=v=>v.toLocaleString('de-DE',{maximumFractionDigits:1});
+ const s=demoObservationAdapter.sample(lon,lat,liveDisplayMinute(),liveScenario),f=v=>v.toLocaleString('de-DE',{maximumFractionDigits:1});
  const typeName=({none:'Trocken',rain:'Regen',mixed:'Schneeregen',snow:'Schnee',freezing:'Gefrierender Regen',hail:'Hagel'})[s.type];
  if(liveLayer==='types')return typeName;
  if(liveLayer==='radar')return typeName+' · '+f(s.rate)+' mm/h';
  if(liveLayer==='temperature')return f(s.temp)+' °C';
  if(liveLayer==='wind')return f(s.wind)+' km/h · '+Math.round(s.direction)+'°';
  if(liveLayer==='lightning'){
-  const count=demoObservationAdapter.strikes(liveMinute,liveScenario).filter(p=>Math.hypot((p.lon-lon)*111*Math.cos(lat*Math.PI/180),(p.lat-lat)*111)<=20).length;
+  const count=demoObservationAdapter.strikes(liveDisplayMinute(),liveScenario).filter(p=>Math.hypot((p.lon-lon)*111*Math.cos(lat*Math.PI/180),(p.lat-lat)*111)<=20).length;
   return count+' Blitze / 20 km';
  }
  return f(liveLayer==='radar'?s.rate:liveLayer==='snowfall'?s.snowfall:s.cover)+' '+liveLayers[liveLayer].unit;
 }
 function liveLegend(){
- const p=liveLayers[liveLayer];el('legend-name').textContent=p.label;el('legend-unit').textContent=p.unit;
+ const p=liveLayers[liveLayer];el('legend-name').textContent=liveLayer==='temperature'?'Temperatur · 2 m':p.label;el('legend-unit').textContent=p.unit;
  if(liveLayer==='radar'){
   el('legend-strip').hidden=true;el('legend-ticks').hidden=true;
   const row=(name,scale)=>'<div class="radar-key-row"><b>'+name+'</b><div class="radar-key-swatches">'+scale.colors.map((c,i)=>'<span><i style="background:'+c+'"></i>'+scale.stops[i].toLocaleString('de-DE')+'</span>').join('')+'</div></div>';
   const box=el('radar-type-legend');box.hidden=false;
   box.innerHTML=row('Regen / Starkregen',p)+row('Schnee',liveLayers.snowfall)+
    '<div class="radar-key-categories">'+[1,3,4].map(i=>'<span><i style="background:'+liveLayers.types.colors[i]+'"></i>'+liveLayers.types.stops[i]+'</span>').join('')+'</div><small>Werte sind die Untergrenzen in mm/h. Hagel ist als Niederschlagsart separat markiert.</small>';
-  el('live-lightning-note').hidden=!liveLightning;return;
+  el('live-lightning-note').hidden=!liveLightning||liveIsFuture();return;
  }
  const n=p.colors.length;el('legend-strip').style.background='linear-gradient(90deg,'+(['temperature','wind'].includes(liveLayer)?p.colors.join(','):p.colors.map((c,i)=>c+' '+(i/n*100)+'%, '+c+' '+((i+1)/n*100)+'%').join(','))+')';
  el('legend-ticks').innerHTML=p.stops.map(v=>'<span>'+v.toLocaleString('de-DE')+'</span>').join('');
- el('live-lightning-note').hidden=liveLayer==='lightning'||!liveLightning;
+ el('live-lightning-note').hidden=liveLayer==='lightning'||!liveLightning||liveIsFuture();
+}
+function selectLiveLayer(id){
+ stopPlay();liveLayer=id;if(id!=='temperature')liveMinute=clamp(liveMinute,-120,liveMaxMinute());
+ el('map-live-layer').value=id;scheduleMap();
+}
+function syncLiveTimeControls(){
+ const enabled=mapSource==='live'&&terrainMode!=='topo',temp=enabled&&liveLayer==='temperature',nowcast=enabled&&nowcastLayers.has(liveLayer);
+ el('map-temperature-days').hidden=!temp;el('map-nowcast-key').hidden=!nowcast;
+ if(!enabled)return;
+ const slider=el('map-time');
+ if(temp){
+  slider.min=0;slider.max=23;slider.step=1;slider.value=liveTempHour;slider.setAttribute('aria-label','Stunde der Temperaturkarte (UTC)');
+  const base=new Date(liveTimeBases[liveScenario]);
+  document.querySelectorAll('[data-temperature-day]').forEach(b=>{
+   const d=+b.dataset.temperatureDay,date=new Date(Date.UTC(base.getUTCFullYear(),base.getUTCMonth(),base.getUTCDate()+d));
+   b.textContent=['Heute','Morgen','Übermorgen'][d]+' · '+date.toLocaleDateString('de-DE',{weekday:'short',day:'2-digit',month:'2-digit',timeZone:'UTC'});
+   b.classList.toggle('active',liveTempDay===d);b.setAttribute('aria-pressed',String(liveTempDay===d));
+  });
+ }else{
+  slider.min=-120;slider.max=liveMaxMinute();slider.step=5;slider.value=clamp(liveMinute,-120,liveMaxMinute());
+  slider.setAttribute('aria-label',nowcast?'Radarzeit: zwei Stunden zurück bis 90 Minuten voraus (Demo)':'Beobachtungszeit (Demo)');
+ }
+}
+function advanceLiveTime(){
+ if(liveLayer==='temperature'){if(liveTempHour===23){liveTempHour=0;liveTempDay=(liveTempDay+1)%3}else liveTempHour++}
+ else liveMinute=liveMinute>=liveMaxMinute()?-120:liveMinute+5;
 }
 function setMapSource(source){
  stopPlay();endMapGesture();mapSource=source;
@@ -956,7 +1001,7 @@ function exitMapFull(){
 }
 function openHomeMap(id){
  if(!homeMapLayers.some(p=>p[0]===id))return;
- stopPlay();endMapGesture();mapSource='live';liveLayer=id;liveScenario='winter';liveMinute=0;terrainMode='weather-relief';
+ stopPlay();endMapGesture();mapSource='live';liveLayer=id;liveScenario='winter';resetLiveTime();terrainMode='weather-relief';
  el('map-live-layer').value=id;el('map-live-scenario').value=liveScenario;el('map-terrain-mode').value=terrainMode;
  mapRegion='Deutschland';mapZoom=3.2;const point=homeLocationPoint(location);mapCenter=null;mapPoint=point;mapPointName=point?location.name:'';
  if(point){const b=baseBounds();if(point[0]<b.west||point[0]>b.east||point[1]<b.south||point[1]>b.north){mapRegion='Europa';mapZoom=13}}
@@ -966,16 +1011,16 @@ function openHomeMap(id){
 }
 function updateFullMapLabels(){
  el('map-full-title').textContent=el('map-layer-title').textContent;
- el('map-full-subtitle').textContent=terrainMode==='topo'?'Topografie':mapSource==='live'?timeText(liveTime())+' · DEMO':mapModel+' · '+timeText(new Date(Date.UTC(2026,10,15,mapRun+mapHour)))+' · DEMO';
+ el('map-full-subtitle').textContent=terrainMode==='topo'?'Topografie':mapSource==='live'?timeText(liveTime())+(liveIsFuture()?' · Prognose (Demo)':' · DEMO'):mapModel+' · '+timeText(new Date(Date.UTC(2026,10,15,mapRun+mapHour)))+' · DEMO';
  el('map-full-layer-tabs').hidden=mapSource!=='live'||terrainMode==='topo';
  document.querySelectorAll('[data-full-layer]').forEach(b=>{const on=b.dataset.fullLayer===liveLayer;b.classList.toggle('active',on);b.setAttribute('aria-pressed',String(on))});
- el('map-info-summary').textContent=terrainMode==='topo'?'Geländehöhen in Metern.':mapSource==='live'?el('map-layer-title').textContent+' · Simulierte Beobachtungen, keine Messdaten. '+el('map-interval').textContent+(liveLayer==='wind'?' Pfeile zeigen die Strömungsrichtung.':''):el('map-layer-title').textContent+' · '+mapModel+' · '+el('map-valid').textContent+' · '+el('map-interval').textContent;
+ el('map-info-summary').textContent=terrainMode==='topo'?'Geländehöhen in Metern.':mapSource==='live'?el('map-layer-title').textContent+(liveIsFuture()?' · Simulierte Prognose, keine Messdaten. ':' · Simulierte Beobachtungen, keine Messdaten. ')+el('map-interval').textContent+(liveLayer==='wind'?' Pfeile zeigen die Strömungsrichtung.':''):el('map-layer-title').textContent+' · '+mapModel+' · '+el('map-valid').textContent+' · '+el('map-interval').textContent;
 }
 function bindFullMap(){
  el('map-full-open').addEventListener('click',()=>enterMapFull('map'));
  el('map-full-close').addEventListener('click',exitMapFull);
  el('map-info-toggle').addEventListener('click',()=>setMapInfo(!mapInfoOpen));el('map-info-close').addEventListener('click',()=>setMapInfo(false));
- document.querySelectorAll('[data-full-layer]').forEach(b=>b.addEventListener('click',()=>{stopPlay();liveLayer=b.dataset.fullLayer;el('map-live-layer').value=liveLayer;refreshMap()}));
+ document.querySelectorAll('[data-full-layer]').forEach(b=>b.addEventListener('click',()=>selectLiveLayer(b.dataset.fullLayer)));
  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&mapFullScreen){if(mapInfoOpen)setMapInfo(false);else exitMapFull()}});
  if(typeof window!=='undefined')window.addEventListener('resize',()=>{if(mapFullScreen)scheduleMap()});
 }
@@ -1260,7 +1305,7 @@ function gridSample(p,lon,lat){
  if(!gridCache.has(cell)){const value=demoValue(p.mode,ix*step,iy*step);gridCache.set(cell,{value,color:Number.isFinite(value)?colorAt(p,value):[95,110,125]})}
  return gridCache.get(cell);
 }
-function mapContentKey(){return [mapRegion,mapSource,mapModel,mapRun,mapHour,mapLayer,liveLayer,liveScenario,liveMinute,liveLightning,liveSymbols,terrainMode,showDistricts,showPlaces,showRoads,showTerrain,showWater,mapPoint?.join(',')].join('/')}
+function mapContentKey(){return [mapRegion,mapSource,mapModel,mapRun,mapHour,mapLayer,liveLayer,liveScenario,liveDisplayMinute(),liveLightning,liveSymbols,terrainMode,showDistricts,showPlaces,showRoads,showTerrain,showWater,mapPoint?.join(',')].join('/')}
 function drawMap(fast=false){
  const p=fields[mapLayer],b=bounds();mapView=b;
  if(mapCanvas.width!==b.w)mapCanvas.width=b.w;if(mapCanvas.height!==b.h)mapCanvas.height=b.h;const ctx=mapCanvas.getContext('2d');
@@ -1308,7 +1353,7 @@ function legend(){
 function renderSample(){
  const p=fields[mapLayer];if(!mapPoint){el('map-sample').innerHTML='<span>Tippe auf die Karte, um einen Beispielwert abzulesen.</span>';return}
  if(mapSource==='live'&&terrainMode!=='topo'){
-  const [lon,lat]=mapPoint;el('map-sample').innerHTML='<div>'+liveLayers[liveLayer].label+' · Demo<br><span>'+lat.toFixed(3)+'° N · '+Math.abs(lon).toFixed(3)+'° '+(lon<0?'W':'O')+'</span></div><b>'+liveSampleText(lon,lat)+'</b>';
+  const [lon,lat]=mapPoint;el('map-sample').innerHTML='<div>'+el('map-layer-title').textContent+(liveIsFuture()?' · Prognose (Demo)':' · Demo')+'<br><span>'+lat.toFixed(3)+'° N · '+Math.abs(lon).toFixed(3)+'° '+(lon<0?'W':'O')+'</span></div><b>'+liveSampleText(lon,lat)+'</b>';
   const district=districtAt(lon,lat),name=mapPointName||(district?district.type+' '+district.name:'');
   if(name){const label=document.createElement('span');label.textContent=name+' · ';el('map-sample').firstElementChild.prepend(label)}return;
  }
@@ -1335,15 +1380,18 @@ function mapLabels(){
  if(terrainMode==='topo')el('map-interval').textContent='';
  if(mapSource==='live'&&terrainMode!=='topo'){
   el('map-weather-controls').hidden=true;
-  el('map-layer-title').textContent=liveLayers[liveLayer].label;
-  el('map-model-badge').textContent='LIVE · DEMO';el('map-overlay-model').textContent='OBS';
-  el('map-view-description').textContent='Beobachtungskarte · simulierte Messdaten';
-  el('map-valid').textContent='Demo: '+timeText(liveTime());
-  el('map-interval').textContent=liveLayer==='lightning'?(liveScenario==='winter'?'Keine Beispielblitze · Sommergewitter auswählen, um Blitze zu testen':'Blitzereignisse der letzten 30 Minuten'):liveLayer==='snowcover'?'Beispiel-Schneedecke (keine Echtzeitmessung)':'5-Minuten-Zeitschritte · keine Vorhersage';
-  el('map-time-label').textContent=liveMinute===0?'Aktuell (Demo)':Math.abs(liveMinute)+' Min. zuvor';
+  const future=liveIsFuture(),minute=liveDisplayMinute(),temp=liveLayer==='temperature';
+  el('map-layer-title').textContent=temp?(future?'Temperaturprognose · 2 m':'Temperatur · 2 m'):liveLayers[liveLayer].label;
+  el('map-model-badge').textContent=future?'PROGNOSE · DEMO':'LIVE · DEMO';el('map-overlay-model').textContent=future?(temp?'PROGNOSE':'NOWCAST'):'OBS';
+  el('map-view-description').textContent=future?'Simulierte Vorschau · keine echten Prognosedaten':'Beobachtungskarte · simulierte Messdaten';
+  el('map-data-notice').textContent=future?'Demo-Prognose · keine Messdaten':'Demo · keine Messdaten';
+  el('map-valid').textContent=(future?'Prognose: ':'Demo: ')+timeText(liveTime());
+  el('map-interval').textContent=temp?'Stündliche Temperaturentwicklung · Demo':liveLayer==='lightning'?(liveScenario==='winter'?'Keine Beispielblitze · Sommergewitter auswählen, um Blitze zu testen':'Blitzereignisse der letzten 30 Minuten'):liveLayer==='snowcover'?'Beispiel-Schneedecke (keine Echtzeitmessung)':nowcastLayers.has(liveLayer)?(future?'Radar-Vorschau · simulierte Verlagerung bis +90 Minuten'+(liveLightning?' · Blitze nur bis Jetzt':''):'5-Minuten-Schritte · Vorschau bis +90 Minuten'):'5-Minuten-Zeitschritte · keine Vorhersage';
+  el('map-time-label').textContent=temp?String(liveTempHour).padStart(2,'0')+':00 UTC':minute===0?'Jetzt (Demo)':minute>0?'+'+minute+' Min.':Math.abs(minute)+' Min. zuvor';
   el('map-gesture-hint').textContent='Ziehen zum Verschieben · Zwei Finger zum Zoomen · Antippen zum Ablesen';
-  el('map-play').setAttribute('aria-label',mapTimer===null?'Radar-Zeitverlauf abspielen':'Wiedergabe pausieren');
+  el('map-play').setAttribute('aria-label',mapTimer===null?(temp?'Temperaturverlauf abspielen':'Radar-Zeitverlauf abspielen'):'Wiedergabe pausieren');
  }
+ syncLiveTimeControls();
  el('map-zoom-minus').disabled=mapZoom<=1;el('map-zoom-plus').disabled=mapZoom>=24;el('map-zoom-level').textContent=mapZoom.toFixed(1)+'×';
  updateFullMapLabels();
 }
@@ -1363,7 +1411,7 @@ function renderMap(){
  if(fields[mapLayer].interval>model.max)mapLayer='rain24';
  const available=mapParameters.filter(p=>p.interval<=model.max),groups=[...new Set(available.map(p=>p.group))];
  parameterSelect.innerHTML=groups.map(g=>'<optgroup label="'+g+'">'+available.filter(p=>p.group===g).map(p=>'<option value="'+p.id+'" '+(p.id===mapLayer?'selected':'')+'>'+p.label+'</option>').join('')+'</optgroup>').join('');
- const time=el('map-time');if(mapSource==='live'){time.max=0;time.step=5;time.min=-120;time.value=liveMinute;time.setAttribute('aria-label','Beobachtungszeit (Demo)')}
+ const time=el('map-time');if(mapSource==='live'){syncLiveTimeControls()}
  else{time.max=model.max;time.step=model.step;time.min=minHour();mapHour=clamp(Math.round(mapHour/model.step)*model.step,minHour(),model.max);time.value=mapHour;time.setAttribute('aria-label','Vorhersagezeit')}
  document.querySelectorAll('[data-region]').forEach(b=>b.classList.toggle('active',b.dataset.region===mapRegion));
  refreshMap();
@@ -1375,13 +1423,15 @@ parameterSelect.addEventListener('change',()=>{stopPlay();mapLayer=parameterSele
 el('map-run').addEventListener('change',e=>{mapRun=+e.target.value;scheduleMap()});
 document.querySelectorAll('[data-region]').forEach(b=>b.addEventListener('click',()=>{stopPlay();mapRegion=b.dataset.region;mapZoom=1;mapCenter=null;mapPoint=null;mapPointName='';renderMap()}));
 document.querySelectorAll('[data-map-source]').forEach(b=>b.addEventListener('click',()=>setMapSource(b.dataset.mapSource)));
-el('map-live-layer').addEventListener('change',e=>{stopPlay();liveLayer=e.target.value;scheduleMap()});
-el('map-live-scenario').addEventListener('change',e=>{stopPlay();liveScenario=e.target.value;scheduleMap()});
+el('map-live-layer').addEventListener('change',e=>selectLiveLayer(e.target.value));
+el('map-live-scenario').addEventListener('change',e=>{stopPlay();liveScenario=e.target.value;resetLiveTime();scheduleMap()});
+document.querySelectorAll('[data-temperature-day]').forEach(b=>b.addEventListener('click',()=>{stopPlay();liveTempDay=+b.dataset.temperatureDay;scheduleMap()}));
+el('map-nowcast-now').addEventListener('click',()=>{stopPlay();liveMinute=0;scheduleMap()});
 el('map-live-lightning').addEventListener('change',e=>{liveLightning=e.target.checked;scheduleMap()});
 el('map-live-symbols').addEventListener('change',e=>{liveSymbols=e.target.checked;scheduleMap()});
 bindFullMap();
-el('map-time').addEventListener('input',e=>{if(mapSource==='live')liveMinute=+e.target.value;else mapHour=+e.target.value;scheduleMap()});
-el('map-play').addEventListener('click',()=>{if(mapTimer!==null){stopPlay();return}el('map-play').textContent='Ⅱ';el('map-play').setAttribute('aria-label','Wiedergabe pausieren');mapTimer=setInterval(()=>{if(mapSource==='live'){liveMinute=liveMinute>=0?-120:liveMinute+5;el('map-time').value=liveMinute}else{const m=mapModels[mapModel];mapHour=mapHour+m.step>m.max?minHour():mapHour+m.step;el('map-time').value=mapHour}scheduleMap()},480)});
+el('map-time').addEventListener('input',e=>{if(mapSource==='live'){if(liveLayer==='temperature')liveTempHour=+e.target.value;else liveMinute=+e.target.value}else mapHour=+e.target.value;scheduleMap()});
+el('map-play').addEventListener('click',()=>{if(mapTimer!==null){stopPlay();return}el('map-play').textContent='Ⅱ';el('map-play').setAttribute('aria-label','Wiedergabe pausieren');mapTimer=setInterval(()=>{if(mapSource==='live'){advanceLiveTime()}else{const m=mapModels[mapModel];mapHour=mapHour+m.step>m.max?minHour():mapHour+m.step;el('map-time').value=mapHour}scheduleMap()},480)});
 const mapPointers=new Map();
 let pointerMoved=false;
 function centerView(lon,lat){
