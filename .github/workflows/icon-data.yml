@@ -1,0 +1,32 @@
+name: DWD model data (prototype)
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/icon-data.yml', 'scripts/ingest-icon.py']
+permissions:
+  contents: write
+concurrency:
+  group: dwd-model-data
+  cancel-in-progress: false
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install GRIB decoder
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-eccodes python3-numpy
+      - name: Import real DWD model grids
+        run: /usr/bin/python3 scripts/ingest-icon.py --output data
+      - name: Publish generated grids to repository
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/icon-d2.json data/icon-eu.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Update DWD model data"
+          git pull --rebase origin main
+          git push origin HEAD:main
