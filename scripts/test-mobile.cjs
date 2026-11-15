@@ -30,6 +30,7 @@ const server=http.createServer((req,res)=>{
   await page.route('**/*',route=>{
    const u=route.request().url();
    if(u.endsWith('/data/stations.json'))return route.fulfill({json:stations});
+   if(u.endsWith('/data/live-imagery.json'))return route.fulfill({json:{schema:1,products:{reflectivity:{...stations.radarImage,source:'DWD DMAX'},satellite:{...stations.radarImage,source:'EUMETSAT / NASA'}}}});
    if(u.startsWith(url))return route.continue();
    return route.abort();
   });
@@ -55,6 +56,15 @@ const server=http.createServer((req,res)=>{
   await page.setViewportSize({width:390,height:844});
   await page.locator('.forecast').scrollIntoViewIfNeeded();
   if(process.env.WEATHER_TEST_SCREENSHOT)await page.screenshot({path:process.env.WEATHER_TEST_SCREENSHOT});
+  await page.evaluate(()=>{setPage('map');setMapSource('live');selectLiveLayer('reflectivity')});
+  await page.waitForFunction(()=>document.querySelector('#map-data-notice').textContent==='Beobachtung');
+  assert.match(await page.locator('#legend-unit').textContent(),/dBZ/);
+  assert.equal(await page.locator('#map-time-controls').isVisible(),false);
+  await page.evaluate(()=>selectLiveLayer('satellite'));
+  await page.waitForFunction(()=>document.querySelector('#map-data-notice').textContent==='Beobachtung');
+  assert.match(await page.locator('#map-view-description').textContent(),/EUMETSAT/);
+  await page.evaluate(()=>setMapSource('model'));
+  assert.equal(await page.locator('#map-time-controls').isVisible(),true);
   assert.deepEqual(errors,[]);console.log('Mobile widths, actual seven-day IFS forecast and radar image fallback: OK');
  }finally{await browser.close();server.close()}
 })().catch(e=>{console.error(e);server.close();process.exitCode=1});

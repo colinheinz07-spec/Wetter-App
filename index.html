@@ -105,7 +105,7 @@
       <div class="panel map-panel">
         <div class="section-head" id="map-normal-head"><div><h2 id="map-layer-title">Temperatur · 2 m</h2><p id="map-view-description">Modellkarte · synthetische Testfelder</p></div><div class="map-normal-actions"><span class="badge" id="map-model-badge">ICON-D2</span><button class="map-expand" id="map-full-open" aria-label="Vollbild öffnen">⛶</button></div></div>
         <div class="map-full-toolbar"><button id="map-full-close" aria-label="Karte schließen">‹</button><div class="map-full-title"><strong id="map-full-title">Wetterkarte</strong><small id="map-full-subtitle">DEMO</small></div><button id="map-info-toggle" aria-label="Karteninformationen" aria-expanded="false">ⓘ</button></div>
-        <div class="map-full-layer-tabs" id="map-full-layer-tabs" hidden><button data-full-layer="radar">Radar</button><button data-full-layer="temperature">Temperatur</button><button data-full-layer="wind">Wind</button></div>
+        <div class="map-full-layer-tabs" id="map-full-layer-tabs" hidden><button data-full-layer="radar">Radar</button><button data-full-layer="reflectivity">dBZ</button><button data-full-layer="satellite">Satellit</button><button data-full-layer="temperature">Temperatur</button><button data-full-layer="wind">Wind</button></div>
         <div id="map-settings">
         <label class="map-select" style="margin-bottom:12px"><span>Grundkarte</span><select id="map-terrain-mode" aria-label="Grundkarte"><option value="weather-relief" selected>Wetter + topografisches Relief</option><option value="topo">Topografische Karte</option><option value="weather">Nur Wetterfarben</option></select></label>
         <div class="map-toolbar" id="map-weather-controls">
@@ -116,8 +116,8 @@
         </div>
         <div id="map-live-controls" hidden>
           <div class="live-map-controls">
-            <label class="map-select"><span>Live-Datenquelle</span><select id="map-live-data-mode"><option value="real">Echte Daten (DWD)</option><option value="demo">Demo</option></select></label>
-            <label class="map-select"><span>Live-Ebene</span><select id="map-live-layer" aria-label="Live-Wetter-Ebene"><option value="radar">Niederschlagsradar</option><option value="temperature">Temperatur · Modell</option><option value="wind">Wind · Modell</option><option value="types">Niederschlagsart · Regen / Schnee / Eis / Hagel</option><option value="snowfall">Schneefall</option><option value="snowcover">Schneehöhe · Modell</option><option value="lightning">Blitzaktivität</option></select></label>
+            <label class="map-select"><span>Live-Datenquelle</span><select id="map-live-data-mode"><option value="real">Echte Daten (DWD / EUMETSAT)</option><option value="demo">Demo</option></select></label>
+            <label class="map-select"><span>Live-Ebene</span><select id="map-live-layer" aria-label="Live-Wetter-Ebene"><option value="radar">Niederschlagsradar</option><option value="reflectivity">Radarreflektivität · dBZ</option><option value="satellite">Meteosat · GeoColour</option><option value="temperature">Temperatur · Modell</option><option value="wind">Wind · Modell</option><option value="types">Niederschlagsart · Regen / Schnee / Eis / Hagel</option><option value="snowfall">Schneefall</option><option value="snowcover">Schneehöhe · Modell</option><option value="lightning">Blitzaktivität</option></select></label>
             <label class="map-select"><span>Demo-Wetterlage</span><select id="map-live-scenario" aria-label="Beispielwetterlage"><option value="winter">Winterlage</option><option value="summer">Sommergewitter</option></select></label>
             <label class="live-overlay"><input type="checkbox" id="map-live-lightning"> Blitze überlagern</label>
             <label class="live-overlay"><input type="checkbox" id="map-live-symbols" checked> Wintersymbole</label>
@@ -749,6 +749,8 @@ function drawTerrain(ctx,b,fast=false){
 // observation feed; a model forecast is never presented as an observation.
 const liveLayers={
  radar:{label:'Niederschlagsradar',unit:'mm/h',stops:[0.1,0.5,2,5,10,15,25,50],colors:['#a3dcff','#62b5ff','#2984e8','#2058c6','#15368d','#542382','#401468','#260839']},
+ reflectivity:{label:'Maximale Radarreflektivität · DMAX',unit:'dBZ',stops:[5,15,25,35,45,50,55,60],colors:['#9acbff','#377ce5','#3bbc68','#d2e838','#f9a52b','#ed412e','#b70082','#6400aa']},
+ satellite:{label:'Meteosat · GeoColour',unit:'',stops:[],colors:[]},
  types:{label:'Niederschlagsart',unit:'',stops:['Regen','Schneeregen','Schnee','Gefr. Regen','Hagel'],colors:['#2984e8','#ad9be1','#e261a0','#e6a249','#ff00e6']},
  snowfall:{label:'Schneefall (Wasseräquivalent)',unit:'mm/h',stops:[0.1,0.5,1,2,5,10],colors:['#ffd0e7','#f99fc9','#ed6eab','#d64288','#b52069','#790c47']},
  snowcover:{label:'Schneehöhe',unit:'cm',stops:[1,3,5,10,20,40,80],colors:['#ffe1ef','#ffc1df','#f99fc9','#ed6eab','#d64288','#b52069','#790c47']},
@@ -759,6 +761,7 @@ const liveLayers={
 let mapSource='model',liveLayer='radar',liveScenario='winter',liveMinute=0,liveLightning=false,liveSymbols=true,liveTempDay=0,liveTempHour=12,liveRadarDaily=false;
 const liveTimeBases={winter:Date.UTC(2026,10,15,12,0),summer:Date.UTC(2026,6,15,14,0)};
 const nowcastLayers=new Set(['radar','types','snowfall']);
+const imageLayers=new Set(['reflectivity','satellite']);
 function liveHasDayTabs(){return liveLayer==='temperature'||liveLayer==='wind'||nowcastLayers.has(liveLayer)}
 function liveHourlyMode(){return liveHasDayTabs()&&(!nowcastLayers.has(liveLayer)||liveRadarDaily)}
 function liveMaxMinute(){return nowcastLayers.has(liveLayer)?90:0}
@@ -861,6 +864,7 @@ function drawLiveBase(ctx,b){
  for(const f of mapBoundaries){const polys=f.geometry.type==='Polygon'?[f.geometry.coordinates]:f.geometry.coordinates;for(const poly of polys){ctx.beginPath();for(const ring of poly)pathRing(ctx,ring,b);ctx.fill('evenodd')}}
 }
 function drawLiveField(ctx,b,fast){
+ if(imageLayers.has(liveLayer)&&!realLiveEnabled)return;
  if(typeof realLiveEnabled!=='undefined'&&realLiveEnabled)return drawRealLiveField(ctx,b,fast);
  if(liveLayer==='lightning')return;
  const minute=liveDisplayMinute(),w=Math.round(b.w/(fast?7:2.5)),h=Math.round(b.h/(fast?7:2.5)),key=[liveLayer,liveScenario,minute,b.west,b.east,b.south,b.north,w,h].join('/');
@@ -953,6 +957,7 @@ function drawLiveStrikes(ctx,b){
  ctx.restore();
 }
 function liveSampleText(lon,lat){
+ if(imageLayers.has(liveLayer))return realLiveEnabled?'Bildprodukt · keine numerische Punktabfrage':'Nur als echtes Bildprodukt verfügbar';
  if(typeof realLiveEnabled!=='undefined'&&realLiveEnabled){const info=realLiveInfo();if(!info.available)return 'Keine Daten';if(info.radar)return 'DWD-Radarbild · Wertabfrage noch nicht verfügbar';if(info.stations){const distance=s=>Math.hypot((s.lon-lon)*111*Math.cos(lat*Math.PI/180),(s.lat-lat)*111),near=validStationRows().sort((a,b)=>distance(a)-distance(b))[0];if(near&&distance(near)<=40)return displayValue(liveLayer==='temperature'?near.temp:near.wind,liveLayers[liveLayer].unit)+' '+liveLayers[liveLayer].unit+' · '+placeText(near.name||near.id)+' · '+localFormat(distance(near))+' km · '+localTime(near.time,{hour:'2-digit',minute:'2-digit'});}
   const s=realLiveSample(lon,lat,info.date.getTime(),info.model);return displayValue(liveLayer==='temperature'?s.temp:liveLayer==='wind'?s.wind:liveLayer==='radar'?s.rate:s.cover,liveLayers[liveLayer].unit)+' '+liveLayers[liveLayer].unit+' · Modell';}
  const s=demoObservationAdapter.sample(lon,lat,liveDisplayMinute(),liveScenario),f=v=>v.toLocaleString('de-DE',{maximumFractionDigits:1});
@@ -968,6 +973,7 @@ function liveSampleText(lon,lat){
  return f(liveLayer==='radar'?s.rate:liveLayer==='snowfall'?s.snowfall:s.cover)+' '+liveLayers[liveLayer].unit;
 }
 function liveLegend(){
+ if(liveLayer==='satellite'){el('legend-name').textContent='Meteosat GeoColour';el('legend-unit').textContent='';el('legend-strip').hidden=true;el('legend-ticks').hidden=true;return}
  if(typeof realLiveEnabled!=='undefined'&&realLiveEnabled&&liveLayer==='radar'&&!liveHourlyMode()){el('legend-name').textContent='DWD-Radar · RV';el('legend-unit').textContent='mm/h';return realRadarLegend()}
  if(typeof realLiveEnabled!=='undefined'&&realLiveEnabled&&liveLayer==='radar'){const p=liveLayers.radar;el('legend-name').textContent='Mittlere Niederschlagsrate · Modell';el('legend-unit').textContent='mm/h';el('radar-type-legend').hidden=true;el('legend-strip').style.background='linear-gradient(90deg,'+p.colors.join(',')+')';el('legend-ticks').innerHTML=p.stops.map(v=>'<span>'+v.toLocaleString('de-DE')+'</span>').join('');el('live-lightning-note').hidden=true;return}
  const p=liveLayers[liveLayer];el('legend-name').textContent=liveLayer==='temperature'?'Temperatur · 2 m':liveLayer==='wind'?'Wind · 10 m':liveLayer==='radar'&&liveHourlyMode()?'Niederschlagsintensität':p.label;el('legend-unit').textContent=p.unit;
@@ -985,12 +991,14 @@ function liveLegend(){
 }
 function selectLiveLayer(id){
  stopPlay();liveLayer=id;if(!liveHasDayTabs())liveMinute=clamp(liveMinute,-120,liveMaxMinute());
+ if(imageLayers.has(id)){liveMinute=0;if(realLiveEnabled)fetchLiveImagery()}
  el('map-live-layer').value=id;scheduleMap();
 }
 function syncLiveTimeControls(){
  const enabled=mapSource==='live'&&terrainMode!=='topo',days=enabled&&liveHasDayTabs(),hourly=enabled&&liveHourlyMode(),radar=enabled&&nowcastLayers.has(liveLayer),nowcast=radar&&!hourly;
  el('map-temperature-days').hidden=!days;el('map-nowcast-key').hidden=!nowcast;
  const radarButton=el('map-radar-nowcast');radarButton.hidden=!radar;radarButton.classList.toggle('active',nowcast);radarButton.setAttribute('aria-pressed',String(nowcast));
+ el('map-time-controls').hidden=enabled&&imageLayers.has(liveLayer);
  if(!enabled)return;
  const slider=el('map-time');
  if(days){
@@ -1350,8 +1358,8 @@ const infoPages={
 function openInfo(key){const page=infoPages[key];if(!page)return;el('info-title').textContent=page[0];el('info-content').innerHTML=page[1];setPage('info')}
 
 // Only verified, explicitly identified data can enter the real model mode.
-const realModelFiles={'ICON-D2':'icon-d2','ICON-EU':'icon-eu','IFS':'ifs'};
-const forecastPriority=['ICON-D2','ICON-EU','IFS'];
+const realModelFiles={'ICON-D2':'icon-d2','ICON-EU':'icon-eu','IFS':'ifs','GFS':'gfs'};
+const forecastPriority=['ICON-D2','ICON-EU','IFS','GFS'];
 const modelProvider=model=>model==='IFS'?'ECMWF':model==='GFS'?'NOAA':'DWD';
 let modelDataMode='demo',realModelRevision=0;
 const realModelCache=new Map(),realModelRequests=new Map(),realDecoded=new Map(),realModelErrors=new Map();
@@ -1365,14 +1373,14 @@ function realData(){return modelDataMode==='real'?realModelCache.get(mapModel):n
 function realModelSupported(p,step,max,anyHour=false){
  const d=realData(),id=p.id==='rh'?'rh2':p.id;if(!d||p.interval>max)return false;
  const interval=id==='rainrate'||id==='radiation'?step:/^rain\d+$/.test(id)||id==='conv'||id==='strat'?p.interval:0;
- const keys=id==='radiation'?['solarTotal']:id==='conv'?['convTotal']:id==='strat'?['convTotal','rainTotal']:interval?['rainTotal']:[id];
+ const keys=/^windp\d+$/.test(id)?['u'+id.slice(5),'v'+id.slice(5)]:id==='radiation'?['solarTotal']:id==='conv'?['convTotal']:id==='strat'?['convTotal','rainTotal']:interval?['rainTotal']:[id];
  const available=h=>keys.every(k=>!!d.frames?.[h]?.[k]&&(!interval||!!d.frames?.[h-interval]?.[k]));
  return anyHour?d.hours.some(available):available(mapHour);
 }
 function effectiveModel(){
  const base=mapModels[mapModel],d=realData();
  if(d)return {...base,step:d.hours[1]-d.hours[0],max:d.hours.at(-1),grid:d.grid.step};
- if(modelDataMode==='real'&&realModelFiles[mapModel])return {...base,step:mapModel==='ICON-D2'?3:6,max:mapModel==='ICON-D2'?48:mapModel==='IFS'?240:120};
+ if(modelDataMode==='real'&&realModelFiles[mapModel])return {...base,step:mapModel==='ICON-D2'?3:6,max:mapModel==='ICON-D2'?48:['IFS','GFS'].includes(mapModel)?240:120};
  return base;
 }
 function modelRunDate(){const d=realData();return modelDataMode==='real'?(d?new Date(d.run):null):new Date(Date.UTC(2026,10,15,mapRun))}
@@ -1400,6 +1408,7 @@ function realModelValue(d,p,lon,lat,h){
  if(x<0||x>=g.nx||y<0||y>=g.ny)return NaN;
  const n=y*g.nx+x;
  const read=(hour,id)=>{const v=decodeRealField(d,hour,id)?.[n],scale=id==='ww'?1:d.scales?.[id]??g.scale;return v===undefined||v===g.missing||!Number.isFinite(scale)||scale<=0?NaN:v*scale};
+ if(/^windp\d+$/.test(p.id))return Math.hypot(read(h,'u'+p.id.slice(5)),read(h,'v'+p.id.slice(5)));
  if(p.id==='rainrate'||(/^rain\d+$/.test(p.id))){
   const interval=p.id==='rainrate'?d.hours[1]-d.hours[0]:p.interval;
   if(h<interval)return NaN;const amount=read(h,'rainTotal')-read(h-interval,'rainTotal');
@@ -1427,12 +1436,12 @@ async function fetchRealModel(model,force=false){
   const local='data/'+file+'.json',remote='https://raw.githubusercontent.com/colinheinz07-spec/Wetter-App/main/data/'+file+'.json';
   for(const url of realModelCache.has(model)?[remote,local]:[local,remote]){
    try{
-    const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),model==='IFS'?90000:45000);let response;
+    const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),['IFS','GFS'].includes(model)?90000:45000);let response;
     try{response=await fetch(url,{cache:'no-cache',credentials:'omit',signal:controller.signal});if(!response.ok)throw Error('HTTP '+response.status);
     const d=validateRealData(await response.json(),model);
     const previous=realModelCache.get(model);
     if(!previous||Date.parse(d.run)>Date.parse(previous.run)||Date.parse(d.run)===Date.parse(previous.run)&&Date.parse(d.generated)>Date.parse(previous.generated)){realModelCache.set(model,d);for(const key of realDecoded.keys())if(key.startsWith(model+'/'))realDecoded.delete(key);realModelRevision++;changed=true}
-    if(url===local&&Date.now()-Date.parse(d.run)>(model==='IFS'?24:9)*3600000)continue;
+    if(url===local&&Date.now()-Date.parse(d.run)>(['IFS','GFS'].includes(model)?24:9)*3600000)continue;
     return;}finally{clearTimeout(timeout)}
    }catch(e){failure=e}
   }
@@ -1445,8 +1454,9 @@ function modelStatus(){
  if(modelDataMode!=='real')return {label:'Testdaten · keine Vorhersage',detail:'Modellkarte · synthetische Testfelder'};
  const d=realData();
  if(d){
-  const provider=modelProvider(d.model),old=Date.now()-Date.parse(d.run)>(d.model==='IFS'?36:18)*3600000;
-  return {label:old?'Archivierter Modelllauf':provider+' · Realdaten',detail:'Quelle: '+(provider==='ECMWF'?'ECMWF IFS · CC BY 4.0':'Deutscher Wetterdienst')+' · Raster reduziert ('+d.grid.step.toLocaleString('de-DE')+'°)'+(old?' · nicht aktuell':'')};
+  const provider=modelProvider(d.model),old=Date.now()-Date.parse(d.run)>(['IFS','GFS'].includes(d.model)?36:18)*3600000;
+  const count=new Set(Object.values(d.frames).flatMap(Object.keys)).size;
+  return {label:old?'Archivierter Modelllauf':provider+' · Realdaten',detail:'Quelle: '+(provider==='ECMWF'?'ECMWF IFS · CC BY 4.0':provider==='NOAA'?'NOAA / NCEP GFS':'Deutscher Wetterdienst')+' · '+count+' Datenfelder · Raster reduziert ('+d.grid.step.toLocaleString('de-DE')+'°)'+(old?' · nicht aktuell':'')};
  }
  if(!realModelFiles[mapModel])return {label:'Noch nicht angebunden',detail:'Für dieses Modell stehen noch keine echten Daten bereit.'};
  return {label:realModelRequests.has(mapModel)?'Modell wird geladen …':'Keine Realdaten verfügbar',detail:modelProvider(mapModel)+'-Modelllauf noch nicht verfügbar. Aktualisieren oder ausdrücklich Demo wählen.'};
@@ -1503,7 +1513,7 @@ function modelComparison(point,now){
  const target=Math.ceil((now+24*3600000)/(6*3600000))*6*3600000;
  return '<section class="panel model-comparison"><h2>Modellvergleich</h2><p class="small muted">'+localTime(target,{weekday:'short',hour:'2-digit',minute:'2-digit'})+' · gleiche Gültigkeitszeit, + ca. 24–30 h</p>'+forecastPriority.map(model=>{
   const f=chooseLocationModel(target,point,false,[model]),exact=f?.time===target?f:null;
-  return '<div class="detail-item"><b>'+model+'</b><span class="small">'+(exact?temperatureText(frameVal(exact,'temp2'))+' °C · '+localFormat(frameVal(exact,'wind'))+' km/h · '+localFormat(frameVal(exact,'rainrate'))+' mm/h':'Noch keine passenden Daten')+'</span></div>';
+  return '<div class="detail-item"><b>'+model+'</b><span class="small">'+(exact?temperatureText(frameVal(exact,'temp2'))+' °C · '+localFormat(frameVal(exact,'wind'))+' km/h · '+localFormat(frameVal(exact,'rainrate'))+' mm/h':model==='GFS'&&!realModelCache.has('GFS')?'<button class="btn" id="load-gfs">GFS laden</button>':'Noch keine passenden Daten')+'</span></div>';
  }).join('')+'</section>';
 }
 function frameWeather(f,daytime=false){
@@ -1525,11 +1535,12 @@ function frameWeather(f,daytime=false){
  if(Number.isInteger(ww)&&codes[ww])return make(...codes[ww],'DWD-Wettercode WW');
  // IFS provides precipitation type, not the ICON weather code. The phase
  // refers to the model time; the rate is the preceding model interval.
- if(type===1)return make(rain>=4?'14_regen_4':night?'65_regen_nacht':rain>=1?'12_regen_2':'11_regen_1','Regen',rain>=4?4:2,'IFS-Niederschlagsart');
- if(type===3||type===12)return make('33_gefrierender_regen',type===12?'Gefrierender Sprühregen':'Gefrierender Regen',6,'IFS-Niederschlagsart');
- if(type===5||type===6)return make(rain>=2?'22_schnee_3':night?'64_schneefall_nacht':'21_schnee_2',type===6?'Nassschnee':'Schneefall',4,'IFS-Niederschlagsart');
- if(type===7)return make('29_schneeregen_2','Schneeregen',4,'IFS-Niederschlagsart');
- if(type===8)return make('21_schnee_2','Eiskörner',5,'IFS-Niederschlagsart');
+ const phaseSource=(f?.d.model||'Modell')+'-Niederschlagsart';
+ if(type===1)return make(rain>=4?'14_regen_4':night?'65_regen_nacht':rain>=1?'12_regen_2':'11_regen_1','Regen',rain>=4?4:2,phaseSource);
+ if(type===3||type===12)return make('33_gefrierender_regen',type===12?'Gefrierender Sprühregen':'Gefrierender Regen',6,phaseSource);
+ if(type===5||type===6)return make(rain>=2?'22_schnee_3':night?'64_schneefall_nacht':'21_schnee_2',type===6?'Nassschnee':'Schneefall',4,phaseSource);
+ if(type===7)return make('29_schneeregen_2','Schneeregen',4,phaseSource);
+ if(type===8)return make('21_schnee_2','Eiskörner',5,phaseSource);
  if(Number.isFinite(rain)&&rain>=.1)return make(rain>=4?'14_regen_4':night?'65_regen_nacht':'12_regen_2','Niederschlag im Modellintervall (Art nicht bestimmt)',rain>=4?4:2,'Modell-Niederschlagssumme');
  if(Number.isFinite(vis)&&vis<1)return make(vis<.2?'44_dichter_nebel':'43_nebel','Nebel / geringe Sicht',2,'Aus Modell-Sichtweite abgeleitet');
  if(Number.isFinite(cloud))return clouds();
@@ -1593,6 +1604,7 @@ function renderRealWeather(){
  const m=(label,id,unit,desc='Modell')=>{const sample=parameterAt(id,point,now,f,fields[id]?.interval||0);return [label,displayValue(sample.value,unit),unit,sample.frame?sample.frame.d.model+' · '+localTime(sample.frame.time,{hour:'2-digit',minute:'2-digit'})+' · '+desc:'Nicht verfügbar']}, groups=[['Temperatur & Feuchtigkeit','sun',[['Temperatur',temperatureText(temp),'°C',s?'Station':'Modell'],['Taupunkt',temperatureText(dew),'°C',s&&Number.isFinite(s.dew)?'Station':'Modell'],['Relative Feuchtigkeit',localFormat(humidity),'%','Berechnet'],m('Oberflächentemperatur','tground','°C'),m('Temperatur (850 hPa)','t850','°C'),m('Lufttemperatur (5 cm)','ground','°C')]],['Niederschlag & Schnee','drop',[m('Niederschlagsrate','rainrate','mm/h','Mittel über Modellintervall'),m('Schneehöhe','snowdepth','cm'),m('Schneefallgrenze','snowline','m'),m('Nullgradgrenze','freezing','m'),m('Neuschnee','snownew','cm'),m('Niederschlagswahrscheinlichkeit','pop','%'),m('Konvektiver Niederschlag · 24 h','conv','mm'),m('Stratiformer Niederschlag · 24 h','strat','mm')]],['Wind & Luftdruck','wind',[['Windgeschwindigkeit',localFormat(wind),'km/h'],m('Windböen','gust','km/h'),m('Wind · 100 m','wind100','km/h'),['Windrichtung',localFormat(s&&Number.isFinite(s.direction)?s.direction:frameVal(f,'winddir')),'°',s&&Number.isFinite(s.direction)?'Station':'Modell'],['Luftdruck (NN)',localFormat(s&&Number.isFinite(s.slp)?s.slp:frameVal(f,'slp')),'hPa',s&&Number.isFinite(s.slp)?'Station':'Modell']]],['Wolken, Nebel & Sicht','eye',[m('Gesamtbewölkung','cloud','%'),m('Tiefe Bewölkung','lowcloud','%'),m('Mittelhohe Bewölkung','midcloud','%'),m('Hohe Bewölkung','highcloud','%'),m('Sichtweite','visibility','km'),m('Niederschlagbares Wasser','pwat','mm')]],['Gewitter & Instabilität','weather',[m('MLCAPE','mlcape','J/kg'),m('MLCIN','mlcin','J/kg'),m('MUCAPE','mucape','J/kg')]],['Sonne & Strahlung','sun',[m('Sonnenstunden','sunhours','h'),m('UV-Index','uv',''),m('Globalstrahlung','radiation','W/m²','Intervallmittel')]]];
  el('weather-right').innerHTML='<section class="panel forecast"><div class="section-head"><div><h2>7-Tage-Trend</h2><p>ICON-D2 → ICON-EU → ECMWF IFS · nach Reichweite</p></div></div>'+dayItems.join('')+'</section><section class="panel parameter-panel"><h2>Wetter im Detail</h2><p class="muted small">— = noch kein Wert verfügbar</p>'+groups.map(parameterGroup).join('')+'</section>'+modelComparison(point,now)+homeMapCards()+'<p class="demo-note">Quellen: DWD Open Data und ECMWF IFS Open Data (CC BY 4.0), Daten gerastert und aufbereitet. Warnsystem und nicht angebundene Parameter bleiben getrennt.</p>';
  renderHomeMaps();
+ const loadGfs=el('load-gfs');if(loadGfs)loadGfs.onclick=async()=>{loadGfs.disabled=true;loadGfs.textContent='GFS lädt …';await fetchRealModel('GFS',true);if(loadGfs.isConnected){loadGfs.disabled=false;loadGfs.textContent=realModelCache.has('GFS')?'GFS geladen':'GFS noch nicht verfügbar'}};
  const hourScroll=document.querySelector('#weather-left .hour-scroll');if(hourScroll)hourScroll.scrollLeft=oldScroll;
  document.querySelectorAll('#weather-right details.parameter-group').forEach((d,i)=>{if(i<openGroups.length)d.open=openGroups[i]});
  document.querySelectorAll('[data-hour]').forEach(b=>b.onclick=()=>{selectedHour=+b.dataset.hour;renderWeather()});
@@ -1600,7 +1612,7 @@ function renderRealWeather(){
 }
 function initWeatherData(){
  weatherRealEnabled=true;renderWeather();
- const update=()=>{for(const model of forecastPriority)fetchRealModel(model,true);fetchRealWeatherCodes()};update();fetchStationData();
+ const update=()=>{for(const model of forecastPriority.filter(m=>m!=='GFS'||realModelCache.has('GFS')||mapModel==='GFS'))fetchRealModel(model,true);fetchRealWeatherCodes();fetchRealModel('IFS').then(()=>{if(!realModelCache.has('IFS'))fetchRealModel('GFS')})};update();fetchStationData();
  setInterval(()=>{if(!document.hidden)update()},30*60000);setInterval(()=>{if(!document.hidden)fetchStationData()},5*60000);
 }
 function renderRealExpert(){
@@ -1613,6 +1625,23 @@ function renderRealExpert(){
 let realLiveEnabled=false,radarRevision=0,directRadarTime=NaN;
 const radarImages=new Map();
 const radarWms='https://maps.dwd.de/geoserver/dwd/wms';
+let liveImagery=null,liveImageryRequest=null;
+const liveImageCache=new Map();
+function currentLiveImage(id=liveLayer){const p=liveImagery?.products?.[id],t=Date.parse(p?.time);return p&&Number.isFinite(t)&&t<=Date.now()&&Date.now()-t<(id==='satellite'?180:60)*60000?p:null}
+async function fetchLiveImagery(){
+ if(liveImageryRequest)return liveImageryRequest;
+ liveImageryRequest=(async()=>{for(const url of [dataRoot+'live-imagery.json','data/live-imagery.json'])try{
+  const c=new AbortController(),timer=setTimeout(()=>c.abort(),15000);let d;try{const r=await fetch(url,{cache:'no-cache',credentials:'omit',signal:c.signal});if(!r.ok)continue;d=await r.json()}finally{clearTimeout(timer)}
+  if(d.schema!==1||!d.products)continue;
+  const products={...liveImagery?.products};for(const id of imageLayers){const p=d.products[id];if(!p||!Number.isFinite(Date.parse(p.time))||!Array.isArray(p.bounds)||p.bounds.length!==4||!p.bounds.every(Number.isFinite)||typeof p.png!=='string'||p.png.length>6_000_000)continue;if(!products[id]||Date.parse(p.time)>=Date.parse(products[id].time))products[id]=p}
+  liveImagery={products};radarRevision++;if(activePage==='map')scheduleMap();return;
+ }catch{}})();try{await liveImageryRequest}finally{liveImageryRequest=null;if(activePage==='map')scheduleMap()}
+}
+function drawLiveImage(ctx,b,id){
+ const p=currentLiveImage(id);if(!p)return;
+ let entry=liveImageCache.get(id);if(!entry||entry.time!==p.time){const img=new Image();entry={time:p.time,img,state:'loading'};liveImageCache.set(id,entry);img.onload=()=>{entry.state='ready';radarRevision++;scheduleMap()};img.onerror=()=>{entry.state='error';scheduleMap()};img.src='data:image/png;base64,'+p.png}
+ if(entry.state==='ready'){const [west,south,east,north]=p.bounds,[x,y]=xy(west,north,b),[r,bot]=xy(east,south,b);ctx.drawImage(entry.img,x,y,r-x,bot-y)}
+}
 function realStationOverlay(){return realLiveEnabled&&['temperature','wind'].includes(liveLayer)&&liveTempDay===0&&liveTempHour===new Date().getUTCHours()}
 function validStationRows(layer=liveLayer){const now=Date.now();return (stationData?.stations||[]).filter(s=>Number.isFinite(layer==='wind'?s.wind:s.temp)&&Number.isFinite(Date.parse(s.time))&&Date.parse(s.time)<=now+60000&&now-Date.parse(s.time)<=90*60000)}
 function drawRealStations(ctx,b){if(!realStationOverlay())return;const used=new Set(),rows=validStationRows().sort((a,z)=>Date.parse(z.time)-Date.parse(a.time));
@@ -1636,14 +1665,16 @@ async function refreshRadarClock(){
 }
 function realLiveBaseDate(){const t=radarBaseTime();return new Date(Number.isFinite(t)?t:Date.now())}
 function realLiveTime(){
+ if(imageLayers.has(liveLayer))return new Date(currentLiveImage()?.time||NaN);
  if(liveHourlyMode()){const d=new Date();d.setUTCHours(liveTempHour,0,0,0);d.setUTCDate(d.getUTCDate()+liveTempDay);return d}
  return new Date(liveLayer==='snowcover'?Date.now():radarBaseTime()+liveMinute*60000);
 }
 function realLiveInfo(){
+ if(imageLayers.has(liveLayer)){const p=currentLiveImage();return {date:new Date(p?.time||NaN),image:true,available:!!p,source:p?.source||(liveLayer==='satellite'?'EUMETSAT / NASA':'DWD DMAX'),kind:'Beobachtung'}}
  const date=realLiveTime(),radar=liveLayer==='radar'&&!liveHourlyMode();
  if(radar){const t=radarBaseTime();return {date,radar:true,available:Number.isFinite(t)&&Date.now()-t<60*60000,source:'DWD · RV',kind:liveMinute>0?'Radarprognose':'Radar-Messung'}}
  let model=['temperature','wind','radar','snowcover'].includes(liveLayer)?chooseLocationModel(date.getTime(),[10,51]):null;
- if(mapRegion==='Europa'&&model)model=chooseLocationModel(date.getTime(),[10,51],false,['ICON-EU','IFS']);
+ if(mapRegion==='Europa'&&model)model=chooseLocationModel(date.getTime(),[10,51],false,['ICON-EU','IFS','GFS']);
  const stations=realStationOverlay()&&validStationRows().length>0;
  return {date:model?new Date(model.time):date,model,stations,available:stations||!!model&&(liveLayer!=='snowcover'||model.d.frames[model.hour]?.snowdepth!=null),source:model?.d.model|| (stations?'DWD-Stationen':'Keine Daten'),kind:model?'Modellprognose':'Stationsmessungen'};
 }
@@ -1680,6 +1711,7 @@ function drawRealRadar(ctx,b,date,onChange=scheduleMap,allowOlder=false){
 }
 function drawRealLiveField(ctx,b,fast){
  const info=realLiveInfo();if(!info.available)return;
+ if(info.image){drawLiveImage(ctx,b,liveLayer);return}
  if(info.radar){if(!fast)drawRealRadar(ctx,b,info.date,scheduleMap,liveMinute===0);return}
  if(!info.model)return;
  const w=Math.max(2,Math.round(b.w/(fast?8:4))),h=Math.max(2,Math.round(b.h/(fast?8:4))),c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d'),im=x.createImageData(w,h);
@@ -1689,6 +1721,7 @@ function drawRealLiveField(ctx,b,fast){
 }
 function realLiveLabels(){
  const info=realLiveInfo(),valid=Number.isFinite(info.date.getTime());
+ if(info.image){const state=liveImageCache.get(liveLayer)?.state,status=!info.available?(liveImageryRequest?'Bild wird geladen …':'Kein aktuelles Bild verfügbar'):state==='ready'?'Beobachtung':state==='error'?'Bild konnte nicht geladen werden':'Bild wird geladen …';el('map-layer-title').textContent=liveLayers[liveLayer].label;el('map-model-badge').textContent=status;el('map-overlay-model').textContent=info.source;el('map-overlay-data').textContent=status;el('map-data-notice').textContent=status;el('map-valid').textContent=valid?'Messzeit: '+timeText(info.date):'Keine gültige Datenzeit';el('map-view-description').textContent=info.source;el('map-interval').textContent=liveLayer==='satellite'?'GeoColour: Wolkenbild (Tag / Nacht), keine Radarreflektivität.':'DWD DMAX: maximales Radarecho in dBZ in der vertikalen Luftsäule, keine Niederschlagsrate.';el('map-time-label').textContent='Letzte Beobachtung';return}
  const radarEntry=info.radar&&valid?radarImages.get(radarImageUrl(bounds(),info.date)):null,imageState=radarEntry?.state;
  const status=!info.available?'Keine Daten':info.radar?(imageState==='ready'?'DWD · Radar':imageState==='error'?'Radar nicht erreichbar':'Radar wird geladen …'):info.stations?'DWD · Messpunkte':(info.model?modelProvider(info.model.d.model)+' · Modell':'Keine Daten');
  el('map-layer-title').textContent=liveLayer==='temperature'?'Temperatur · '+(info.stations?'Messpunkte':'Modell'):liveLayer==='wind'?'Wind · '+(info.stations?'Messpunkte':'Modell'):info.radar?'Niederschlagsradar · RV':liveLayer==='radar'?'Niederschlagsrate · Modell':liveLayers[liveLayer].label;
@@ -1703,7 +1736,7 @@ function realRadarLegend(){
  el('legend-strip').hidden=true;el('legend-ticks').hidden=true;el('radar-type-legend').hidden=false;el('live-lightning-note').hidden=true;
  el('radar-type-legend').innerHTML='<div class="small">Original-DWD-Farbskala · Niederschlagsintensität</div><img style="max-width:100%;background:white;border-radius:6px" alt="DWD Radarlegende" src="'+radarWms+'?service=WMS&amp;version=1.1.1&amp;request=GetLegendGraphic&amp;format=image/png&amp;layer=dwd:RV-Produkt">';
 }
-function initRealLive(){realLiveEnabled=true;el('map-live-data-mode').value='real';el('map-live-data-mode').addEventListener('change',e=>{realLiveEnabled=e.target.value==='real';for(const id of ['map-live-scenario','map-live-lightning','map-live-symbols'])el(id).disabled=realLiveEnabled;stopPlay();resetLiveTime();scheduleMap()});resetLiveTime();scheduleMap();refreshRadarClock();setInterval(()=>{if(!document.hidden)refreshRadarClock()},5*60000)}
+function initRealLive(){realLiveEnabled=true;el('map-live-data-mode').value='real';el('map-live-data-mode').addEventListener('change',e=>{realLiveEnabled=e.target.value==='real';for(const id of ['map-live-scenario','map-live-lightning','map-live-symbols'])el(id).disabled=realLiveEnabled;stopPlay();resetLiveTime();if(realLiveEnabled&&imageLayers.has(liveLayer))fetchLiveImagery();scheduleMap()});resetLiveTime();scheduleMap();refreshRadarClock();setInterval(()=>{if(!document.hidden){refreshRadarClock();if(activePage==='map'&&imageLayers.has(liveLayer))fetchLiveImagery()}},5*60000)}
 function renderRealHomeMaps(point){
  const f=chooseLocationModel(Date.now(),point),b=previewBounds(point);
  for(const [id] of homeMapLayers){const canvas=el('home-map-'+id),ctx=canvas.getContext('2d');drawLiveBase(ctx,b);
@@ -1726,7 +1759,7 @@ const mapModels = {
  'ICON-D2': {max:48,step:1,bias:0,phase:0,grid:.035},
  'ICON-EU': {max:120,step:3,bias:.35,phase:.8,grid:.09},
  'IFS': {max:168,step:3,bias:-.3,phase:1.5,grid:.12},
- 'GFS': {max:168,step:3,bias:.55,phase:2.1,grid:.25}
+ 'GFS': {max:240,step:6,bias:.55,phase:2.1,grid:.25}
 };
 const palettes={
  temp:['#5b2495','#424fbc','#409add','#67d5d4','#c2eb81','#f8d56d','#f59248','#d9444e','#9e2268'],
@@ -1799,6 +1832,16 @@ const mapParameters=[
  P('rh700','Vertikalprofil','Relative Feuchte · 700 hPa','%',[0,15,30,45,60,70,80,90,100],'moisture','rh700'),
  P('rh500','Vertikalprofil','Relative Feuchte · 500 hPa','%',[0,15,30,45,60,70,80,90,100],'moisture','rh500')
 ];
+// The same level catalogue applies to all actual model providers. A field
+// remains explicitly unavailable until that model supplied it.
+for(const lev of [925,850,700,500,300,250,200]){
+ const label=lev+' hPa';
+ if(!mapParameters.some(p=>p.id==='t'+lev))mapParameters.push(P('t'+lev,'Höhenwetter · Temperatur','Temperatur · '+label,'°C',[-70,-55,-40,-25,-15,-5,5,15,25],'temp','t850'));
+ if(!mapParameters.some(p=>p.id==='rh'+lev))mapParameters.push(P('rh'+lev,'Höhenwetter · Feuchte','Relative Feuchte · '+label,'%',[0,15,30,45,60,70,80,90,100],'moisture','rh850'));
+ if(!mapParameters.some(p=>p.id==='z'+lev))mapParameters.push(P('z'+lev,'Höhenwetter · Geopotential','Geopotential · '+label,'dam',[50,150,250,400,550,750,950,1100,1250],'temp','z500'));
+ mapParameters.push(P('windp'+lev,'Höhenwetter · Wind','Wind · '+label,'m/s',[0,5,10,15,20,30,40,60,80],'wind','jet'),P('u'+lev,'Höhenwetter · Wind','Westwindkomponente U · '+label,'m/s',[-50,-30,-20,-10,0,10,20,30,50],'negative','jet'),P('v'+lev,'Höhenwetter · Wind','Südwindkomponente V · '+label,'m/s',[-50,-30,-20,-10,0,10,20,30,50],'negative','jet'));
+}
+mapParameters.push(P('reflectivity','Niederschlag & Schnee','Simulierte Radarreflektivität (Modell)','dBZ',[0,10,20,30,40,45,50,55,65],'rain','rainrate'),P('wind100','Wind & Druck','Wind · 100 m','km/h',[0,10,20,30,40,60,80,100,120],'wind','wind'),P('cloudbase','Wolken & Sicht','Konvektive Wolkenbasis','m',[0,250,500,1000,2000,3000,5000,8000,12000],'index','lcl'),P('cloudtop','Wolken & Sicht','Konvektive Wolkenobergrenze','m',[0,1000,2000,4000,6000,8000,10000,12000,15000],'index','el'),P('deepcloudtop','Wolken & Sicht','Obergrenze tiefer Konvektion','m',[0,1000,2000,4000,6000,8000,10000,12000,15000],'index','el'),P('mucin','Konvektion & Gewitter','MUCIN','J/kg',[-250,-150,-100,-75,-50,-25,-10,-5,0],'negative','mlcin'),P('tsnow','Niederschlag & Schnee','Schneetemperatur','°C',[-25,-20,-15,-10,-5,0,5,10,15],'temp','ground'),P('tmin','Temperatur & Feuchte','Modellminimum im Ausgabeintervall','°C',[-20,-10,-5,0,5,10,15,20,30],'temp','temp'),P('tmax','Temperatur & Feuchte','Modellmaximum im Ausgabeintervall','°C',[-20,-10,-5,0,5,10,15,20,30],'temp','temp'));
 let mapModel='ICON-D2',mapRun=12,mapHour=0,mapZoom=1,mapPoint=null,mapPointName='',mapTimer=null,mapFrame=null,mapView=null,mapCenter=null;
 const mapCanvas=el('model-canvas');
 const mapBuffer=document.createElement('canvas');
@@ -1991,6 +2034,7 @@ function renderMap(){
  modelSelect.innerHTML=list.map(s=>'<option value="'+s+'" '+(s===mapModel?'selected':'')+'>'+s+'</option>').join('');
  if(fields[mapLayer].interval>model.max)mapLayer='rain24';
  const available=mapParameters.filter(p=>p.interval<=model.max),groups=[...new Set(available.map(p=>p.group))];
+ if(modelDataMode==='real'&&realData())available.sort((a,b)=>Number(realModelSupported(b,model.step,model.max,true))-Number(realModelSupported(a,model.step,model.max,true)));
  parameterSelect.innerHTML=groups.map(g=>'<optgroup label="'+g+'">'+available.filter(p=>p.group===g).map(p=>'<option value="'+p.id+'" '+(p.id===mapLayer?'selected':'')+'>'+p.label+(modelDataMode==='real'&&(!realModelFiles[mapModel]||!realModelSupported(p,model.step,model.max,true))?' · keine Realdaten':'')+'</option>').join('')+'</optgroup>').join('');
  const run=el('map-run'),date=modelRunDate();run.disabled=modelDataMode==='real';el('map-run-label').textContent=modelDataMode==='real'?'Modelllauf ('+modelProvider(mapModel)+')':'Modelllauf (Demo)';
  run.innerHTML=modelDataMode==='real'?'<option value="0">'+(date?timeText(date):'Noch nicht verfügbar')+'</option>':[0,6,12].map(h=>'<option value="'+h+'" '+(mapRun===h?'selected':'')+'>15.11. · '+String(h).padStart(2,'0')+' UTC</option>').join('');

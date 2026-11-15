@@ -31,11 +31,12 @@ SURFACE = {'2t':('temp2',1,-273.15),'2d':('dew',1,-273.15),
            'ssrd':('solarTotal',.001,0),'100u':('u100',1,0),'100v':('v100',1,0)}
 SCALES={'mucape':1,'ptype':1,'solarTotal':10,'snowDensity':1}
 CORE = {'temp2','dew','slp','cloud','rainTotal','u10','v10'}
-PRESSURE = {('t',n):(f't{n}',1,-273.15) for n in (850,700,500)}
-PRESSURE.update({('r',n):(f'rh{n}',1,0) for n in (850,700,500)})
-PRESSURE.update({('gh',n):(f'z{n}',.1,0) for n in (850,700,500)})
-PRESSURE.update({('z',n):(f'z{n}',1/98.0665,0) for n in (850,700,500)})
-PRESSURE.update({('u',300):('u300',1,0),('v',300):('v300',1,0)})
+LEVELS=(925,850,700,500,300,250,200)
+PRESSURE = {('t',n):(f't{n}',1,-273.15) for n in LEVELS}
+PRESSURE.update({('r',n):(f'rh{n}',1,0) for n in LEVELS})
+PRESSURE.update({('gh',n):(f'z{n}',.1,0) for n in LEVELS})
+PRESSURE.update({('z',n):(f'z{n}',1/98.0665,0) for n in LEVELS})
+PRESSURE.update({(v,n):(f'{v}{n}',1,0) for v in ('u','v') for n in LEVELS})
 
 
 def get(url, offset=None, length=None):
@@ -131,7 +132,7 @@ def frame(run,hour):
     values['winddir']=(np.degrees(np.arctan2(-u,-v))+360)%360
     t,d=values['temp2'],values['dew']
     values['rh2']=np.clip(100*np.exp(17.625*d/(243.04+d)-17.625*t/(243.04+t)),0,100)
-    if 'u300' in values and 'v300' in values:values['jet']=np.hypot(values.pop('u300'),values.pop('v300'))
+    if 'u300' in values and 'v300' in values:values['jet']=np.hypot(values['u300'],values['v300'])
     if 'u100' in values and 'v100' in values:values['wind100']=np.hypot(values.pop('u100'),values.pop('v100'))*3.6
     if 'snowWater' in values and 'snowDensity' in values:
         water,density=values['snowWater'],values['snowDensity']
@@ -150,7 +151,7 @@ def main():
     out=Path('data/ifs.json');out.parent.mkdir(exist_ok=True)
     if out.exists():
         previous=json.loads(out.read_text())
-        if dt.datetime.fromisoformat(previous['run'])>=run:
+        if dt.datetime.fromisoformat(previous['run'])>=run and 't925' in previous['frames'].get('0',{}):
             print('IFS cycle already published');return
     with futures.ThreadPoolExecutor(max_workers=2) as pool:
         frames=dict(pool.map(lambda hour:frame(run,hour),HOURS))

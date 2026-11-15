@@ -33,12 +33,19 @@ EXTRA = {"vmax_10m":("gust",3.6,0,.1),"h_snow":("snowdepth",100,0,.1),
          "relhum_2m":("rh2",1,0,.1),"clcl":("lowcloud",1,0,.1),
          "clcm":("midcloud",1,0,.1),"clch":("highcloud",1,0,.1),
          "t_g":("tground",1,-273.15,.1),"snowlmt":("snowline",1,0,1),
-         "hzerocl":("freezing",1,0,1),"ww":("ww",1,0,1)}
+         "hzerocl":("freezing",1,0,1),"ww":("ww",1,0,1),
+         "t_2m_max":("tmax",1,-273.15,.1),"t_2m_min":("tmin",1,-273.15,.1),
+         "t_snow":("tsnow",1,-273.15,.1),"t_5cm":("ground",1,-273.15,.1),
+         "bas_con":("cloudbase",1,0,1),"top_con":("cloudtop",1,0,1),
+         "htop_dc":("deepcloudtop",1,0,1),"cape_mu":("mucape",1,0,1),
+         "cin_mu":("mucin",1,0,1)}
 FILENAME = re.compile(r'href="([^"]*regular-lat-lon_single-level_(\d{10})_(\d{3})[^"]*\.grib2\.bz2)"')
 PRESSURE_FILENAME = re.compile(r'href="([^"]*regular-lat-lon_pressure-level_(\d{10})_(\d{3})_(\d+)_.*\.grib2\.bz2)"')
-PRESSURE = {"t":{850:("t850",1,-273.15),700:("t700",1,-273.15),500:("t500",1,-273.15)},
-            "relhum":{850:("rh850",1,0),700:("rh700",1,0),500:("rh500",1,0)},
-            "fi":{500:("z500",1/98.0665,0)},"u":{300:("u300",1,0)},"v":{300:("v300",1,0)}}
+LEVELS=(925,850,700,500,300,250,200)
+PRESSURE = {"t":{n:(f"t{n}",1,-273.15) for n in LEVELS},
+            "relhum":{n:(f"rh{n}",1,0) for n in LEVELS},
+            "fi":{n:(f"z{n}",1/98.0665,0) for n in LEVELS},
+            "u":{n:(f"u{n}",1,0) for n in LEVELS},"v":{n:(f"v{n}",1,0) for n in LEVELS}}
 
 
 def download(url):
@@ -197,9 +204,13 @@ def model_data(model):
         with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
             pressure=dict(r for r in pool.map(pressure_field,[(v,l,s) for v,levels in PRESSURE.items() for l,s in levels.items()]) if r)
         if 'u300' in pressure and 'v300' in pressure:
-            pressure['jet']=np.hypot(pressure.pop('u300'),pressure.pop('v300'))
+            pressure['jet']=np.hypot(pressure['u300'],pressure['v300'])
+        for low,key in [(850,'lapse'),(700,'lapse7')]:
+            if all(k in pressure for k in (f't{low}','t500',f'z{low}','z500')):
+                thickness=(pressure['z500']-pressure[f'z{low}'])/100
+                pressure[key]=np.divide(pressure[f't{low}']-pressure['t500'],thickness,out=np.full_like(thickness,np.nan),where=thickness>0)
         for key,value in pressure.items():
-            if key not in ('u300','v300'):frames[str(hour)][key]=pack(value,.1)
+            frames[str(hour)][key]=pack(value,.1)
         if not np.isfinite(temp).any():
             raise ValueError("Empty temperature field")
         print(f"{model} +{hour:03d}h",flush=True)

@@ -38,6 +38,12 @@ assert.ok(Number.isNaN(vm.runInContext(`frameVal(sample({...wwTest,run:new Date(
 vm.runInContext(`ifs.frames[6].ptype=packed(7);ifs.scales={ptype:1};realDecoded.delete('IFS/'+run+'/6/ptype')`,context);
 assert.equal(vm.runInContext(`frameWeather(sample(ifs,6),true).icon`,context),'29_schneeregen_2');
 assert.equal(vm.runInContext(`frameWeather(sample(ifs,12),true).source`,context),'Modell-Niederschlagssumme');
+vm.runInContext(`const gfs={...ifs,model:'GFS',frames:{...ifs.frames,6:{...ifs.frames[6],u850:packed(30),v850:packed(40)}}};realModelCache.set('GFS',validateRealData(gfs,'GFS'));`,context);
+assert.equal(vm.runInContext(`realModelValue(gfs,{id:'windp850'},...point,6)`,context),5);
+assert.equal(vm.runInContext(`chooseLocationModel(Date.parse(run)+180*3600000,point).d.model`,context),'IFS');
+assert.equal(vm.runInContext(`realModelCache.delete('IFS');chooseLocationModel(Date.parse(run)+180*3600000,point).d.model`,context),'GFS');
+vm.runInContext(`realModelCache.set('IFS',ifs);realModelCache.delete('GFS')`,context);
+console.log('GFS fallback and pressure-level wind vector: OK');
 console.log('Whole-degree temperatures, exact WW, IFS precipitation type and same-run supplemental fields: OK');
 console.log('Existing ICON grids, IFS schema, model transitions, precipitation and missing fields: OK');
 if(fs.existsSync('data/ifs.json')){
