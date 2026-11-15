@@ -35,6 +35,10 @@ EXTRA = {"vmax_10m":("gust",3.6,0,.1),"h_snow":("snowdepth",100,0,.1),
          "t_g":("tground",1,-273.15,.1),"snowlmt":("snowline",1,0,1),
          "hzerocl":("freezing",1,0,1)}
 FILENAME = re.compile(r'href="([^"]*regular-lat-lon_single-level_(\d{10})_(\d{3})[^"]*\.grib2\.bz2)"')
+PRESSURE_FILENAME = re.compile(r'href="([^"]*regular-lat-lon_pressure-level_(\d{10})_(\d{3})_(\d+)_.*\.grib2\.bz2)"')
+PRESSURE = {"t":{850:("t850",1,-273.15),700:("t700",1,-273.15),500:("t500",1,-273.15)},
+            "relhum":{850:("rh850",1,0),700:("rh700",1,0),500:("rh500",1,0)},
+            "fi":{500:("z500",1/98.0665,0)},"u":{300:("u300",1,0)},"v":{300:("v300",1,0)}}
 
 
 def download(url):
@@ -51,6 +55,11 @@ def download(url):
 def listing(model, run, variable):
     directory = f"{ROOT}/{model}/grib/{run}/{variable}/"
     return {(stamp, int(hour)): directory + name for name, stamp, hour in FILENAME.findall(download(directory).decode("utf8"))}
+
+
+def pressure_listing(model, run, variable):
+    directory = f"{ROOT}/{model}/grib/{run}/{variable}/"
+    return {(stamp,int(hour),int(level)):directory+name for name,stamp,hour,level in PRESSURE_FILENAME.findall(download(directory).decode("utf8"))}
 
 
 def choose_run(model, hours):
@@ -136,6 +145,12 @@ def model_data(model):
             print(f"Optional {model} {v}: {exc}",flush=True);return v,{}
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
         extra_offers=dict(pool.map(optional_listing,EXTRA))
+    def pressure_offer(v):
+        try:return v,pressure_listing(model,stamp[-2:],v)
+        except Exception as exc:
+            print(f"Optional pressure {model} {v}: {exc}",flush=True);return v,{}
+    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+        pressure_offers=dict(pool.map(pressure_offer,PRESSURE))
     print(f"{model}: {stamp} · {len(hours)} steps",flush=True)
     frames={}
     for hour in hours:
@@ -169,6 +184,22 @@ def model_data(model):
         with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
             for result in pool.map(extra_field,EXTRA):
                 if result:frames[str(hour)][result[0]]=result[1]
+        def pressure_field(entry):
+            variable,level,spec=entry
+            url=pressure_offers[variable].get((stamp,hour,level))
+            if not url:return None
+            try:
+                key,factor,offset=spec
+                values=sample_grib(download(url),x,y,stamp,hour)
+                return key,values*factor+offset
+            except Exception as exc:
+                print(f"Optional pressure {model} {variable} {level} +{hour}: {exc}",flush=True);return None
+        with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+            pressure=dict(r for r in pool.map(pressure_field,[(v,l,s) for v,levels in PRESSURE.items() for l,s in levels.items()]) if r)
+        if 'u300' in pressure and 'v300' in pressure:
+            pressure['jet']=np.hypot(pressure.pop('u300'),pressure.pop('v300'))
+        for key,value in pressure.items():
+            if key not in ('u300','v300'):frames[str(hour)][key]=pack(value,.1)
         if not np.isfinite(temp).any():
             raise ValueError("Empty temperature field")
         print(f"{model} +{hour:03d}h",flush=True)

@@ -1,0 +1,33 @@
+name: ECMWF IFS forecast data
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '25 9,21 * * *'
+  push:
+    branches: [main]
+    paths: ['.github/workflows/ifs-data.yml', 'scripts/ingest-ifs.py']
+permissions:
+  contents: write
+concurrency:
+  group: ifs-model-data
+  cancel-in-progress: false
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install 'eccodes>=2.42' numpy
+      - run: python scripts/ingest-ifs.py
+      - name: Publish complete IFS cycle
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add data/ifs.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'Update ECMWF IFS data'
+          git pull --rebase origin main
+          git push origin HEAD:main
