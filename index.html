@@ -20,6 +20,12 @@
 .map-main canvas{touch-action:none;cursor:grab}.map-main canvas:active{cursor:grabbing}.map-search-wrap{position:relative;margin:0 0 10px}.map-search-wrap input{width:100%;padding:10px 12px;border:1px solid #37506a;border-radius:11px;background:#12283e;color:var(--text);font:inherit;font-size:13px}.map-search-results{position:absolute;left:0;right:0;top:calc(100% + 5px);z-index:4;display:grid;max-height:250px;overflow:auto;background:#102338;border:1px solid #46627a;border-radius:12px;box-shadow:0 10px 30px #0006}.map-search-results:empty{display:none}.map-search-results button{font-size:13px;text-align:left;padding:11px 12px;border-bottom:1px solid var(--line)}.map-search-results button:last-child{border:0}.map-search-results button:hover{background:#27445d}.map-display-options{display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:10px;color:var(--muted);font-size:12px}.map-display-options label{display:flex;align-items:center;gap:6px}.map-display-options input{accent-color:var(--accent)}.map-zoom .zoom-label{font-size:10px;text-align:center;padding:5px 0;background:#101e30e8;border-radius:6px;color:#d9e7f4}.map-interval{font-size:11px;line-height:1.45;color:#bdd4ea;padding:0 2px 8px}.map-interval:empty{display:none}.map-caption a{color:#9bc9f6}.map-hint{font-size:10px;color:var(--muted);margin:7px 2px 0}
 .live-map-controls{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:12px}.live-map-controls .map-select:first-child{grid-column:1/-1}.live-map-note{font-size:12px;line-height:1.4;color:var(--muted);margin:4px 0 11px}.live-lightning-note{display:flex;flex-wrap:wrap;gap:10px;font-size:11px;color:var(--muted);margin:8px 0}.live-lightning-note span{display:flex;align-items:center;gap:5px}.live-lightning-note i{display:inline-block;width:9px;height:9px;border-radius:50%;border:1px solid #694526}.live-map-controls label.live-overlay{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
 .radar-type-legend{display:grid;gap:9px;margin-top:9px}.radar-key-row{display:grid;gap:5px}.radar-key-row b{font-size:11px;color:var(--muted)}.radar-key-swatches{display:flex;gap:2px}.radar-key-swatches span{flex:1;min-width:0;text-align:center;font-size:10px;color:var(--muted);display:grid;gap:4px}.radar-key-swatches i{height:11px;border-radius:2px}.radar-key-categories{display:flex;flex-wrap:wrap;gap:8px;font-size:11px;color:var(--muted)}.radar-key-categories span{display:flex;align-items:center;gap:4px}.radar-key-categories i{display:inline-block;width:12px;height:12px;border-radius:3px}.radar-type-legend small{font-size:10px;color:var(--muted);line-height:1.4}
+.home-maps{grid-row:6}.home-map-grid{display:grid;gap:12px}.home-map-card{display:block;width:100%;padding:0;border:1px solid #354a61;border-radius:14px;overflow:hidden;background:#122438;text-align:left}.home-map-card:active{transform:scale(.99)}.home-map-head{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;gap:8px}.home-map-head strong{font-size:14px}.home-map-head small{font-size:11px;display:block;margin-top:2px}.home-map-card canvas{width:100%;height:auto;display:block;background:#20374a}.home-map-foot{padding:9px 12px;display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--muted)}.home-map-foot b{color:var(--accent2);font-weight:650}.home-map-grid .home-map-card+.home-map-card{margin-top:0}.map-expand{border:1px solid #42617b;background:#183049;padding:8px 10px;border-radius:10px;font-size:12px;white-space:nowrap}.map-normal-actions{display:flex;align-items:center;gap:7px}
+@media(max-width:759px){.column-right .home-maps{grid-row:6}.column-right .demo-note{grid-row:7}}
+@media(min-width:760px){.home-map-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.home-map-head{padding:9px}.home-map-head strong{font-size:12px}.home-map-foot{padding:8px}}
+.map-full-toolbar,.map-full-layer-tabs{display:none}.map-fullscreen-active{overflow:hidden}.page.map-fullscreen.active{display:flex;position:fixed;inset:0;z-index:1000;flex-direction:column;background:var(--page);padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);animation:none}.map-fullscreen>.page-title,.map-fullscreen>#map-source,.map-fullscreen>#map-region{display:none}.map-fullscreen .map-panel{display:flex;flex:1;min-height:0;flex-direction:column;padding:0;border:0;border-radius:0;margin:0;width:100%;max-width:none;background:var(--page);position:relative;gap:0}.map-fullscreen #map-normal-head,.map-fullscreen #map-settings{display:none}.map-fullscreen .map-full-toolbar{display:flex;align-items:center;justify-content:space-between;gap:7px;padding:9px 10px;flex-shrink:0}.map-full-toolbar button{height:38px;min-width:38px;border:1px solid #38516a;border-radius:11px;background:#172b41;display:grid;place-items:center;font-size:20px}.map-full-title{flex:1;min-width:0;text-align:center}.map-full-title strong{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:14px}.map-full-title small{display:block;font-size:10px;color:var(--muted)}.map-fullscreen .map-full-layer-tabs:not([hidden]){display:flex;gap:6px;padding:0 10px 8px;flex-shrink:0}.map-full-layer-tabs button{flex:1;font-size:12px;padding:9px 4px;background:#16283b;border-radius:9px;color:var(--muted);border:1px solid transparent}.map-full-layer-tabs button.active{color:var(--accent2);border-color:#6aa8df;background:#203e5b}.map-fullscreen .map-main{margin:0;flex:1;min-height:0;width:100%;max-width:none;border:0;border-radius:0;display:flex;align-items:stretch;justify-content:center}.map-fullscreen .map-main canvas{width:100%;height:100%;max-width:none;max-height:none;margin:0}.map-fullscreen .map-actions{margin:6px 10px 9px;flex-shrink:0}.map-fullscreen .map-sample{margin:6px 10px 0;min-height:38px;padding:6px 10px;flex-shrink:0}.map-fullscreen #map-info-panel{display:none}.map-fullscreen.map-info-open #map-info-panel{display:block;position:absolute;bottom:0;left:0;right:0;z-index:8;max-height:65%;overflow:auto;overscroll-behavior:contain;padding:14px 16px 20px;background:#111f31f8;border:1px solid #47617a;border-radius:18px 18px 0 0;box-shadow:0 -12px 40px #0008}.map-info-head{display:none}.map-fullscreen .map-info-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}.map-info-head button{padding:7px 10px;background:#20374c;border-radius:8px;font-size:15px}.map-info-summary{display:none}.map-fullscreen .map-info-summary{display:block;font-size:12px;color:var(--muted);margin-bottom:8px}.map-fullscreen .map-overlay{top:10px}
+@media(min-width:760px){.home-maps{grid-row:auto}.home-map-grid{grid-template-columns:1fr}.home-map-card canvas{max-height:190px;object-fit:cover}}.map-fullscreen.map-info-open #map-info-panel{display:flex;flex-direction:column}.map-fullscreen .map-info-head{order:-3}.map-fullscreen .map-info-summary{order:-2}.map-fullscreen .map-legend,.map-fullscreen .live-lightning-note{order:-1;flex-shrink:0}.map-fullscreen #map-info-panel>*{flex-shrink:0}
+.home-section-tabs button{flex:1}.home-section-tabs{margin-bottom:12px}.hero,.forecast,.home-maps{scroll-margin-top:12px}
 [hidden]{display:none!important}
 </style>
 </head>
@@ -35,6 +41,7 @@
   </header>
   <main>
     <section id="page-weather" class="page active" aria-label="Wetter">
+      <div class="segmented home-section-tabs" aria-label="Wetter-Abschnitte"><button data-home-jump=".hero" class="active">Heute</button><button data-home-jump=".forecast">7 Tage</button><button data-home-jump=".home-maps">Karten</button></div>
       <div class="main-grid">
         <div class="column column-left" id="weather-left"></div>
         <div class="column column-right" id="weather-right"></div>
@@ -45,7 +52,10 @@
       <div class="segmented" id="map-source"><button data-map-source="model" class="active" aria-pressed="true">Modelle</button><button data-map-source="live" aria-pressed="false">Live-Wetter</button></div>
       <div class="segmented" id="map-region"><button class="active" data-region="Deutschland">Deutschland</button><button data-region="Europa">Europa</button></div>
       <div class="panel map-panel">
-        <div class="section-head"><div><h2 id="map-layer-title">Temperatur · 2 m</h2><p id="map-view-description">Modellkarte · synthetische Testfelder</p></div><span class="badge" id="map-model-badge">ICON-D2</span></div>
+        <div class="section-head" id="map-normal-head"><div><h2 id="map-layer-title">Temperatur · 2 m</h2><p id="map-view-description">Modellkarte · synthetische Testfelder</p></div><div class="map-normal-actions"><span class="badge" id="map-model-badge">ICON-D2</span><button class="map-expand" id="map-full-open" aria-label="Vollbild öffnen">⛶</button></div></div>
+        <div class="map-full-toolbar"><button id="map-full-close" aria-label="Karte schließen">‹</button><div class="map-full-title"><strong id="map-full-title">Wetterkarte</strong><small id="map-full-subtitle">DEMO</small></div><button id="map-info-toggle" aria-label="Karteninformationen" aria-expanded="false">ⓘ</button></div>
+        <div class="map-full-layer-tabs" id="map-full-layer-tabs" hidden><button data-full-layer="radar">Radar</button><button data-full-layer="temperature">Temperatur</button><button data-full-layer="wind">Wind</button></div>
+        <div id="map-settings">
         <label class="map-select" style="margin-bottom:12px"><span>Grundkarte</span><select id="map-terrain-mode" aria-label="Grundkarte"><option value="weather-relief" selected>Wetter + topografisches Relief</option><option value="topo">Topografische Karte</option><option value="weather">Nur Wetterfarben</option></select></label>
         <div class="map-toolbar" id="map-weather-controls">
           <label class="map-select"><span>Wettermodell</span><select id="map-model" aria-label="Wettermodell"></select></label>
@@ -54,7 +64,7 @@
         </div>
         <div id="map-live-controls" hidden>
           <div class="live-map-controls">
-            <label class="map-select"><span>Live-Ebene (Demo)</span><select id="map-live-layer" aria-label="Live-Wetter-Ebene"><option value="radar">Niederschlagsradar</option><option value="types">Niederschlagsart · Regen / Schnee / Eis / Hagel</option><option value="snowfall">Schneefall</option><option value="snowcover">Schneehöhe</option><option value="lightning">Blitzaktivität</option></select></label>
+            <label class="map-select"><span>Live-Ebene (Demo)</span><select id="map-live-layer" aria-label="Live-Wetter-Ebene"><option value="radar">Niederschlagsradar</option><option value="temperature">Aktuelle Temperatur</option><option value="wind">Aktueller Wind</option><option value="types">Niederschlagsart · Regen / Schnee / Eis / Hagel</option><option value="snowfall">Schneefall</option><option value="snowcover">Schneehöhe</option><option value="lightning">Blitzaktivität</option></select></label>
             <label class="map-select"><span>Demo-Wetterlage</span><select id="map-live-scenario" aria-label="Beispielwetterlage"><option value="winter">Winterlage</option><option value="summer">Sommergewitter</option></select></label>
             <label class="live-overlay"><input type="checkbox" id="map-live-lightning"> Blitze überlagern</label>
             <label class="live-overlay"><input type="checkbox" id="map-live-symbols" checked> Wintersymbole</label>
@@ -65,7 +75,9 @@
         <div id="map-interval" class="map-interval"></div>
         <div class="map-search-wrap"><input id="map-search" type="search" placeholder="Ort oder Landkreis auf Karte finden…" aria-label="Ort oder Landkreis suchen" autocomplete="off"><div id="map-search-results" class="map-search-results"></div></div>
         <div class="map-display-options"><label><input id="map-show-districts" type="checkbox" checked> Kreise / Gemeinden</label><label><input id="map-show-places" type="checkbox" checked> Orte</label><label><input id="map-show-roads" type="checkbox" checked> Straßen</label><label><input id="map-show-terrain" type="checkbox" checked> Gebirge / Gipfel</label><label><input id="map-show-water" type="checkbox" checked> Gewässer</label></div>
+        </div>
         <div class="map-main"><canvas id="model-canvas" width="640" height="760" aria-label="Farbige Wetterkarte mit Ländergrenzen"></canvas><div class="map-overlay"><span id="map-overlay-model">ICON-D2</span><span>DEMO</span></div><div class="map-zoom"><button id="map-zoom-plus" aria-label="Hineinzoomen">+</button><span class="zoom-label" id="map-zoom-level">1.0×</span><button id="map-zoom-minus" aria-label="Herauszoomen">−</button><button id="map-zoom-reset" aria-label="Karte zurücksetzen">↺</button></div></div>
+        <div id="map-info-panel"><div class="map-info-head"><h2>Karteninformationen</h2><button id="map-info-close" aria-label="Informationen schließen">×</button></div><p id="map-info-summary" class="map-info-summary"></p>
         <div class="map-hint" id="map-gesture-hint">Ziehen zum Verschieben · Zwei Finger zum Zoomen · Antippen zum Ablesen eines Modellrasterwerts</div>
         <div class="map-hint" style="display:flex;flex-wrap:wrap;gap:10px"><span><span style="display:inline-block;width:16px;border-top:3px solid #eee;vertical-align:middle;margin-right:4px"></span>Staatsgrenze</span><span><span style="display:inline-block;width:16px;border-top:2px solid #ddd;vertical-align:middle;margin-right:4px"></span>Bundesland</span><span><span style="display:inline-block;width:16px;border-top:1px solid #ccc;vertical-align:middle;margin-right:4px"></span>Kreis / Gemeinde</span></div>
         <div id="map-terrain-status" class="map-hint" role="status"></div>
@@ -73,10 +85,11 @@
         <div class="map-hint"><a style="color:inherit" href="https://openfreemap.org/" target="_blank" rel="noopener">OpenFreeMap</a> · © <a style="color:inherit" href="https://openmaptiles.org/" target="_blank" rel="noopener">OpenMapTiles</a> · Daten von <a style="color:inherit" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a></div>
         <div class="map-legend"><div class="legend-head"><span id="legend-name"></span><span id="legend-unit"></span></div><div class="legend-strip" id="legend-strip"></div><div class="legend-ticks" id="legend-ticks"></div><div class="radar-type-legend" id="radar-type-legend" hidden></div></div>
         <div class="live-lightning-note" id="live-lightning-note" hidden><span><i style="background:#ffec55"></i>0–5 min</span><span><i style="background:#ffaa3b"></i>5–15 min</span><span><i style="background:#e97143"></i>15–30 min</span></div>
-        <div class="map-sample" id="map-sample"><span>Tippe auf die Karte, um einen Beispielwert abzulesen.</span></div>
-        <div class="map-actions" id="map-time-controls"><button class="map-play" id="map-play" aria-label="Vorhersage abspielen">▶</button><div class="map-control"><span id="time-icon"></span><input type="range" id="map-time" min="0" max="48" value="0" aria-label="Vorhersagezeit"><strong id="map-time-label">+0 Std.</strong></div></div>
         <p class="map-caption">Relief: <a href="https://www.ncei.noaa.gov/products/etopo-global-relief-model" target="_blank" rel="noopener">NOAA ETOPO1</a> (Offline-Raster, 20′; resampled via <a href="https://github.com/linad3d/contourlines" target="_blank" rel="noopener">Contourlines</a>); <a href="https://registry.opendata.aws/terrain-tiles/" target="_blank" rel="noopener">Mapzen/Tilezen Terrain Tiles</a>, <a href="https://github.com/tilezen/joerd/blob/master/docs/attribution.md" target="_blank" rel="noopener">Höhendaten-Quellen und Lizenzen</a>. Europe terrain data produced using Copernicus data and information funded by the European Union – EU-DEM layers; © offene Daten Österreichs – Digitales Geländemodell (DGM) Österreich; © Kartverket; UK terrain data © Environment Agency copyright and/or database right 2015; ETOPO1: NOAA; GMTED2010 and SRTM courtesy of USGS. Relief visuell überhöht, Höhenwerte unverändert.</p>
         <p class="map-caption">Geografie: <a href="https://www.naturalearthdata.com/" target="_blank" rel="noopener">Natural Earth</a> (europäische Staatsgrenzen 1:50 Mio., Orte, Gebirgsnamen, Gipfel und Gewässer, generalisiert); © GeoBasis-DE / <a href="https://www.bkg.bund.de" target="_blank" rel="noopener">BKG</a> 2019, VG250 (31.12.2018, Geometrie vereinfacht, Staatsgrenze aus Bundesländern abgeleitet), <a href="https://www.govdata.de/dl-de/by-2-0" target="_blank" rel="noopener">dl-de/by-2-0</a>. Orte: <a href="https://www.destatis.de/DE/Themen/Gesellschaft-Umwelt/Bevoelkerung/Regionales/Gemeindeverzeichnis/_inhalt.html" target="_blank" rel="noopener">Statistisches Bundesamt (Destatis)</a>, Gemeindeverzeichnis, verändert/gerundet. Die Wetterfelder und Raster sind vollständig simuliert.</p>
+        </div>
+        <div class="map-sample" id="map-sample"><span>Tippe auf die Karte, um einen Beispielwert abzulesen.</span></div>
+        <div class="map-actions" id="map-time-controls"><button class="map-play" id="map-play" aria-label="Vorhersage abspielen">▶</button><div class="map-control"><span id="time-icon"></span><input type="range" id="map-time" min="0" max="48" value="0" aria-label="Vorhersagezeit"><strong id="map-time-label">+0 Std.</strong></div></div>
       </div>
     </section>
     <section id="page-warnings" class="page" aria-label="Warnungen">
@@ -124,26 +137,26 @@ const simpleMetric=(icon,label,value,unit,desc)=>'<article class="mini"><div cla
 const warningContent=()=>ui('alert',25)+'<div><b>Glättegefahr · Montag</b><div class="warning-window">05–09 Uhr &amp; 17–20 Uhr</div><p>Örtlich glatte Fahrbahnen, besonders auf Nebenstrecken und Brücken. Stufe 2 · Demo</p></div>';
 const parameterValue=([label,value,unit='',desc=''])=>'<div class="parameter-value"><div class="p-label">'+label+'</div><strong>'+value+(unit?' <span>'+unit+'</span>':'')+'</strong>'+(desc?'<div class="p-desc">'+desc+'</div>':'')+'</div>';
 const parameterGroup=([title,icon,items],i)=>'<details class="parameter-group" '+(i===0?'open':'')+'><summary><span class="group-icon">'+ui(icon,17)+'</span><span class="group-title">'+title+'</span><span class="group-count">'+items.length+' Werte</span>'+ui('chevron',16,'chev')+'</summary><div class="parameter-grid">'+items.map(parameterValue).join('')+'</div></details>';
-const currentGroups=()=>[
+const currentGroups=()=>{const now=homeCurrentSample();return [
  ['Temperatur & Feuchtigkeit','sun',[
-  ['Lufttemperatur (2 m)',7+location.offset,'°C','Aktuell'],['Gefühlte Temperatur',4+location.offset,'°C','Windkühle'],['Taupunkt',4+location.offset,'°C','2 m'],['Relative Feuchtigkeit',81,'%'],['Lufttemperatur (5 cm)',5+location.offset,'°C','Knapp über Grund'],['Bodentemperatur (5 cm Tiefe)',6+location.offset,'°C'],['Temperatur (850 hPa)',-2,'°C','Freie Atmosphäre']
+  ['Lufttemperatur (2 m)',now.temp,'°C','Aktuell'],['Gefühlte Temperatur',now.feels,'°C','Windkühle'],['Taupunkt',now.temp-3,'°C','2 m'],['Relative Feuchtigkeit',81,'%'],['Lufttemperatur (5 cm)',now.temp-2,'°C','Knapp über Grund'],['Bodentemperatur (5 cm Tiefe)',now.temp-1,'°C'],['Temperatur (850 hPa)',-2,'°C','Freie Atmosphäre']
  ]],
  ['Niederschlag','drop',[
-  ['Niederschlag aktuell','0,0','mm/h'],['Letzte 6 Stunden','0,0','mm'],['Letzte 24 Stunden','1,4','mm'],['Heute · 24 h','2,3','mm','Prognosesumme'],['Niederschlagswahrsch.','10','%','Aktuelle Stunde'],['Niederschlagsart','Trocken','','Aktuell']
+  ['Niederschlag aktuell',fmt(now.rate),'mm/h'],['Letzte 6 Stunden','0,0','mm'],['Letzte 24 Stunden','1,4','mm'],['Heute · 24 h','2,3','mm','Prognosesumme'],['Niederschlagswahrsch.','10','%','Aktuelle Stunde'],['Niederschlagsart',now.type==='none'?'Trocken':now.condition,'','Aktuell']
  ]],
  ['Wind & Luftdruck','wind',[
-  ['Mittlerer Wind (10 m)',18,'km/h'],['Windböen (10 m)',35,'km/h'],['Windrichtung','SW','225°'],['Luftdruck (NN)',1017,'hPa'],['Drucktendenz','+2','hPa/3 h'],['Wind (850 hPa)',42,'km/h']
+  ['Mittlerer Wind (10 m)',now.wind,'km/h'],['Windböen (10 m)',now.gust,'km/h'],['Windrichtung',Math.round(now.direction),'°'],['Luftdruck (NN)',1017,'hPa'],['Drucktendenz','+2','hPa/3 h'],['Wind (850 hPa)',42,'km/h']
  ]],
  ['Wolken, Nebel & Sicht','eye',[
   ['Gesamtbewölkung',85,'%'],['Tiefe Bewölkung',75,'%'],['Mittelhohe Wolken',40,'%'],['Hohe Wolken',15,'%'],['Wolkenuntergrenze',800,'m','Über Grund'],['Sichtweite',12,'km'],['Nebelwahrscheinlichkeit',10,'%']
  ]],
  ['Schnee, Frost & Glätte','weather',[
-  ['Schneehöhe',0,'cm'],['Neuschnee heute',0,'cm/24 h'],['Neuschnee 6 h',0,'cm'],['Schneefallgrenze',750,'m'],['Nullgradgrenze',1000,'m'],['Frostwahrscheinlichkeit',5,'%','Aktuelle Stunde'],['Fahrbahntemperatur',6+location.offset,'°C','Beispiel; keine Messung'],['Fahrbahnzustand','Feucht','','Beispiel; keine Messung']
+  ['Schneehöhe',Math.round(now.cover),'cm'],['Neuschnee heute',0,'cm/24 h'],['Neuschnee 6 h',0,'cm'],['Schneefallgrenze',750,'m'],['Nullgradgrenze',1000,'m'],['Frostwahrscheinlichkeit',5,'%','Aktuelle Stunde'],['Fahrbahntemperatur',now.temp-1,'°C','Beispiel; keine Messung'],['Fahrbahnzustand','Feucht','','Beispiel; keine Messung']
  ]],
  ['Sonne & Strahlung','sun',[
   ['Sonnenaufgang','07:35','Uhr'],['Sonnenuntergang','16:13','Uhr'],['Tageslänge','8 h 38','min'],['Sonnenschein heute','2,1','h','Prognose'],['UV-Index',1,'','Gering'],['Globalstrahlung',110,'W/m²']
  ]]
-];
+]};
 function currentParameters(){const groups=currentGroups();return '<section class="panel parameter-panel"><div class="section-head"><div><h2>Wetter im Detail</h2><p>Aktuelle Mess- und Prognosewerte · Beispiel</p></div><span class="badge">'+groups.reduce((n,g)=>n+g[2].length,0)+' Werte</span></div><div class="parameter-groups">'+groups.map(parameterGroup).join('')+'</div></section>'}
 const hourExtras=[
  [81,4,85,12,1017,'SW'],[76,4,30,15,1018,'SW'],[73,3,20,18,1018,'SW'],[78,3,60,14,1018,'SW'],[84,3,80,9,1018,'WSW'],[91,4,95,7,1019,'W'],[94,3,100,6,1019,'W'],[88,2,65,10,1020,'W'],[85,1,35,13,1020,'WNW'],[86,0,5,12,1021,'NW'],[90,-1,25,8,1021,'NW'],[99,1,80,.7,1021,'NW']
@@ -160,15 +173,17 @@ const dailyExtras=[
 const fmt=n=>n.toLocaleString('de-DE',{minimumFractionDigits:1,maximumFractionDigits:1});
 function renderWeather(){
   el('location-name').textContent=location.name;el('location-region').textContent=location.region+' · Deutschland';
-  const h=hours[selectedHour];const hero='<section class="panel hero"><div class="hero-head"><span class="tag">AKTUELL</span><span class="small" style="color:#c1d2e4">12:00 Uhr · Demo</span></div><div class="hero-weather"><div><div class="temp">'+(7+location.offset)+'<span>°C</span></div><div class="condition">Stark bewölkt</div><div class="feels">Gefühlt '+(4+location.offset)+' °C</div></div>'+weather('05_stark_bewoelkt','Stark bewölkt')+'</div><p class="hi-lo">Tiefstwert '+degrees(days[0][2])+' &nbsp;·&nbsp; Höchstwert '+degrees(days[0][3])+'</p><div class="metrics">'+metric('wind','Wind',18,'km/h')+metric('wind','Böen',35,'km/h')+metric('drop','Feuchte',81,'%')+'</div></section>';
+  const h=hours[selectedHour],now=homeCurrentSample();const hero='<section class="panel hero"><div class="hero-head"><span class="tag">AKTUELL</span><span class="small" style="color:#c1d2e4">12:00 UTC · Demo</span></div><div class="hero-weather"><div><div class="temp">'+now.temp+'<span>°C</span></div><div class="condition">'+now.condition+'</div><div class="feels">Gefühlt '+now.feels+' °C</div></div>'+weather(now.icon,now.condition)+'</div><p class="hi-lo">Tiefstwert '+degrees(days[0][2])+' &nbsp;·&nbsp; Höchstwert '+degrees(days[0][3])+'</p><div class="metrics">'+metric('wind','Wind',now.wind,'km/h')+metric('wind','Böen',now.gust,'km/h')+metric('drop','Feuchte',81,'%')+'</div></section>';
   const hourly='<section class="panel hourly"><div class="section-head"><div><h2>Stundenverlauf</h2><p>Vorhersage für die nächsten Stunden</p></div><span class="badge">Stündlich</span></div><div class="hour-scroll">'+hours.map((a,i)=>'<button class="hour '+(selectedHour===i?'active':'')+'" data-hour="'+i+'" aria-pressed="'+(selectedHour===i)+'"><span class="hour-time">'+a[0]+'</span>'+weather(a[2],'')+'<strong>'+degrees(a[1])+'</strong><span class="rain">'+a[3]+' %</span></button>').join('')+'</div><div class="hour-detail" id="hour-detail">'+hourDetails(h)+'</div></section>';
   const warn='<button class="warning" id="go-warning">'+warningContent()+ui('chevron',18)+'</button>';
   el('weather-left').innerHTML=hero+hourly+warn;
   const forecast='<section class="panel forecast"><div class="section-head"><div><h2>7-Tage-Prognose</h2><p>Tippe auf einen Tag für mehr Details</p></div><span class="badge">7 Tage</span></div>'+days.map((d,i)=>dayRow(d,i)).join('')+'</section>';
-  el('weather-right').innerHTML=forecast+currentParameters()+'<p class="demo-note">Designprototyp · Alle Werte und Warnungen sind frei erfunden.<br>Keine Wettervorhersage.</p>';
+  el('weather-right').innerHTML=forecast+currentParameters()+homeMapCards()+'<p class="demo-note">Designprototyp · Alle Werte und Warnungen sind frei erfunden.<br>Keine Wettervorhersage.</p>';
+  renderHomeMaps();
   document.querySelectorAll('[data-hour]').forEach(b=>b.addEventListener('click',()=>{selectedHour=+b.dataset.hour;document.querySelectorAll('[data-hour]').forEach(x=>{x.classList.toggle('active',x===b);x.setAttribute('aria-pressed',x===b?'true':'false')});el('hour-detail').innerHTML=hourDetails(hours[selectedHour])}));
   document.querySelectorAll('[data-day]').forEach(b=>b.addEventListener('click',()=>{openDay=openDay===+b.dataset.day?-1:+b.dataset.day;renderWeather();if(openDay>=0)document.querySelector('[data-day="'+openDay+'"]').scrollIntoView({block:'nearest',behavior:'smooth'})}));
   el('go-warning').addEventListener('click',()=>setPage('warnings'));
+  document.querySelectorAll('[data-home-jump]').forEach(b=>b.onclick=()=>{document.querySelectorAll('[data-home-jump]').forEach(x=>x.classList.toggle('active',x===b));document.querySelector(b.dataset.homeJump)?.scrollIntoView({block:'start',behavior:'smooth'})});
 }
 function hourDetails(h){const e=hourExtras[hours.indexOf(h)];return [['Niederschlag',fmt(h[4])+' mm'],['Wind',h[5]+' km/h'],['Böen',h[6]+' km/h'],['Windrichtung',e[5]],['Taupunkt',degrees(e[1])+'C'],['Luftfeuchte',e[0]+' %'],['Bewölkung',e[2]+' %'],['Sichtweite',e[3].toLocaleString('de-DE')+' km'],['Luftdruck (NN)',e[4]+' hPa']].map(([label,value])=>'<div class="detail-item">'+label+'<b>'+value+'</b></div>').join('')}
 function dayRow(d,i){
@@ -670,6 +685,8 @@ const liveLayers={
  types:{label:'Niederschlagsart',unit:'',stops:['Regen','Schneeregen','Schnee','Gefr. Regen','Hagel'],colors:['#2984e8','#ad9be1','#e261a0','#e6a249','#ff00e6']},
  snowfall:{label:'Schneefall (Wasseräquivalent)',unit:'mm/h',stops:[0.1,0.5,1,2,5,10],colors:['#ffd0e7','#f99fc9','#ed6eab','#d64288','#b52069','#790c47']},
  snowcover:{label:'Schneehöhe',unit:'cm',stops:[1,3,5,10,20,40,80],colors:['#ffe1ef','#ffc1df','#f99fc9','#ed6eab','#d64288','#b52069','#790c47']},
+ temperature:{label:'Aktuelle Temperatur · 2 m',unit:'°C',stops:[-20,-10,-5,0,5,10,15,20,30],colors:['#5b2495','#424fbc','#409add','#67d5d4','#c2eb81','#f8d56d','#f59248','#d9444e','#9e2268']},
+ wind:{label:'Aktueller Wind · 10 m',unit:'km/h',stops:[0,5,10,20,30,40,60,80,100],colors:['#e6f1df','#92d7b9','#53bfaa','#3e99b6','#6654b4','#b74d9d','#f18b60','#f4d76b','#9e3e43']},
  lightning:{label:'Blitzaktivität · letzte 30 Min.',unit:'Alter',stops:['0–5 min','5–15 min','15–30 min'],colors:['#ffec55','#ffaa3b','#e97143']}
 };
 let mapSource='model',liveLayer='radar',liveScenario='winter',liveMinute=0,liveLightning=false,liveSymbols=true;
@@ -683,7 +700,7 @@ function liveObservation(lon,lat,minute=liveMinute,scenario=liveScenario){
  if(scenario==='summer'){
   const cells=[[7.4,50.2,48,.32,.23],[9.1,51.0,65,.28,.22],[10.3,49.4,32,.35,.25],[12.3,52.6,49,.3,.23],[13.2,48.5,40,.26,.2],[5.4,47.6,28,.4,.25]];
   for(const [x,y,a,sx,sy] of cells){rate+=a*liveGauss(lon,lat,x+t*.55,y+t*.2,sx,sy)+3.2*liveGauss(lon,lat,x+t*.55,y+t*.2,sx*2.5,sy*2.1)}
-  rate*=texture;
+  rate*=texture;temp=23-dy*.65-dx*.14-Math.max(0,offlineHeight(lon,lat))*.005;
   // Explicit simulated hail cores in selected example storms; intensity
   // alone is NOT a hail classifier for a future live observation feed.
   hail=liveGauss(lon,lat,9.1+t*.55,51+t*.2,.12,.10)>.46||liveGauss(lon,lat,7.4+t*.55,50.2+t*.2,.10,.08)>.55;
@@ -699,7 +716,9 @@ function liveObservation(lon,lat,minute=liveMinute,scenario=liveScenario){
  }
  if(rate<.1)rate=0;
  const type=rate===0?'none':hail?'hail':freezing?'freezing':temp<=-.7?'snow':temp<=1.1?'mixed':'rain';
- return {rate,type,snowfall:type==='snow'?rate:type==='mixed'?rate*.4:0,cover};
+ const wind=Math.max(0,12+19*liveGauss(lon,lat,7.8+t*.2,53.9,3,1.8)+9*liveGauss(lon,lat,12,48,2.1,1.1)+5*Math.sin(lon*.8+lat*.6+t*.3));
+ const direction=(240+22*Math.sin(lon*.6+lat*.2)+t*4+360)%360;
+ return {rate,type,snowfall:type==='snow'?rate:type==='mixed'?rate*.4:0,cover,temp,wind,direction};
 }
 // Fixed, deterministic demo strikes: positions and times are stable between
 // zooms and playback frames. Their age is relative to the displayed frame.
@@ -721,6 +740,12 @@ const demoObservationAdapter={
 function liveTime(){return new Date(liveTimeBases[liveScenario]+liveMinute*60000)}
 function liveColor(layer,s){
  const p=liveLayers[layer];let i;
+ if(layer==='temperature'||layer==='wind'){
+  const v=layer==='temperature'?s.temp:s.wind;let k=0;
+  while(k<p.stops.length-2&&v>p.stops[k+1])k++;
+  const a=rgbForLive(p.colors[k]),b=rgbForLive(p.colors[k+1]),f=clamp((v-p.stops[k])/(p.stops[k+1]-p.stops[k]),0,1);
+  return '#'+a.map((c,j)=>Math.round(c+(b[j]-c)*f).toString(16).padStart(2,'0')).join('');
+ }
  if(layer==='types'){i=['rain','mixed','snow','freezing','hail'].indexOf(s.type);return i<0?null:p.colors[i]}
  if(layer==='radar'){
   if(s.rate<.1||s.type==='none')return null;
@@ -761,6 +786,15 @@ function drawLiveField(ctx,b,fast){
   c.putImageData(im,0,0);
  }
  ctx.save();ctx.imageSmoothingEnabled=false;ctx.drawImage(liveBuffer,0,0,b.w,b.h);ctx.restore();
+}
+function drawLiveWindArrows(ctx,b,minute=liveMinute,scenario=liveScenario,spacing=80,scale=1){
+ ctx.save();ctx.lineWidth=1.6*scale;ctx.strokeStyle='#1c2b3dcc';ctx.lineCap='round';ctx.lineJoin='round';
+ for(let y=spacing/2;y<b.h;y+=spacing)for(let x=spacing/2;x<b.w;x+=spacing){
+  const [lon,lat]=lonlat(x,y,b),s=demoObservationAdapter.sample(lon,lat,minute,scenario);
+  const a=(s.direction+180)*Math.PI/180,dx=Math.sin(a)*9*scale,dy=-Math.cos(a)*9*scale;
+  ctx.beginPath();ctx.moveTo(x-dx,y-dy);ctx.lineTo(x+dx,y+dy);ctx.lineTo(x+dx*.46-dy*.45,y+dy*.46+dx*.45);
+  ctx.moveTo(x+dx,y+dy);ctx.lineTo(x+dx*.46+dy*.45,y+dy*.46-dx*.45);ctx.stroke();
+ }ctx.restore();
 }
 function layerAlpha(layer){return layer==='snowcover'?185:255}
 // Lightweight, geographically anchored marks. They describe the sampled
@@ -825,6 +859,8 @@ function liveSampleText(lon,lat){
  const typeName=({none:'Trocken',rain:'Regen',mixed:'Schneeregen',snow:'Schnee',freezing:'Gefrierender Regen',hail:'Hagel'})[s.type];
  if(liveLayer==='types')return typeName;
  if(liveLayer==='radar')return typeName+' · '+f(s.rate)+' mm/h';
+ if(liveLayer==='temperature')return f(s.temp)+' °C';
+ if(liveLayer==='wind')return f(s.wind)+' km/h · '+Math.round(s.direction)+'°';
  if(liveLayer==='lightning'){
   const count=demoObservationAdapter.strikes(liveMinute,liveScenario).filter(p=>Math.hypot((p.lon-lon)*111*Math.cos(lat*Math.PI/180),(p.lat-lat)*111)<=20).length;
   return count+' Blitze / 20 km';
@@ -841,7 +877,7 @@ function liveLegend(){
    '<div class="radar-key-categories">'+[1,3,4].map(i=>'<span><i style="background:'+liveLayers.types.colors[i]+'"></i>'+liveLayers.types.stops[i]+'</span>').join('')+'</div><small>Werte sind die Untergrenzen in mm/h. Hagel ist als Niederschlagsart separat markiert.</small>';
   el('live-lightning-note').hidden=!liveLightning;return;
  }
- const n=p.colors.length;el('legend-strip').style.background='linear-gradient(90deg,'+p.colors.map((c,i)=>c+' '+(i/n*100)+'%, '+c+' '+((i+1)/n*100)+'%').join(',')+')';
+ const n=p.colors.length;el('legend-strip').style.background='linear-gradient(90deg,'+(['temperature','wind'].includes(liveLayer)?p.colors.join(','):p.colors.map((c,i)=>c+' '+(i/n*100)+'%, '+c+' '+((i+1)/n*100)+'%').join(','))+')';
  el('legend-ticks').innerHTML=p.stops.map(v=>'<span>'+v.toLocaleString('de-DE')+'</span>').join('');
  el('live-lightning-note').hidden=liveLayer==='lightning'||!liveLightning;
 }
@@ -849,6 +885,96 @@ function setMapSource(source){
  stopPlay();endMapGesture();mapSource=source;
  if(terrainMode==='topo'){terrainMode='weather-relief';el('map-terrain-mode').value=terrainMode}
  renderMap();
+}
+
+// Local preview cards and a full-screen presentation of the SAME interactive
+// map. No duplicate map instance, network requests, or forecast state.
+let mapFullScreen=false,mapFullReturn='map',mapFullScroll=0,mapInfoOpen=false;
+const homeMapLayers=[['radar','Niederschlagsradar','Niederschlag in deiner Region'],['temperature','Temperaturkarte','Lufttemperatur · 2 m'],['wind','Windkarte','Windgeschwindigkeit · 10 m']];
+const homePreviewCache=new Map();
+function homeLocationPoint(place){
+ const p=mapPlaceRecords.find(p=>p[0]===place.name)||mapPlaceRecords.find(p=>p[0].startsWith(place.name+' ('));
+ return p?[p[1],p[2]]:null;
+}
+function homeCurrentSample(){
+ const p=homeLocationPoint(location),s=p?demoObservationAdapter.sample(...p,0,'winter'):{temp:7+location.offset,wind:18,direction:225,rate:0,type:'none',cover:0};
+ const weather={none:['Stark bewölkt','05_stark_bewoelkt'],rain:['Regen','12_regen_2'],snow:['Schneefall','21_schnee_2'],mixed:['Schneeregen','29_schneeregen_2'],freezing:['Gefrierender Regen','33_gefrierender_regen'],hail:['Hagel','36_starkes_gewitter']}[s.type];
+ return {...s,temp:Math.round(s.temp),wind:Math.round(s.wind),gust:Math.round(s.wind*1.7),feels:Math.round(s.temp-3),condition:weather[0],icon:weather[1]};
+}
+function homeMapCards(){
+ return '<section class="panel home-maps"><div class="section-head"><div><h2>Aktuelle Wetterkarten</h2><p>'+location.name+' und Umgebung · Demo</p></div><span class="badge">Karten</span></div><div class="home-map-grid">'+homeMapLayers.map(([id,title,desc])=>'<button class="home-map-card" data-home-map="'+id+'" aria-label="'+title+' im Vollbild öffnen"><div class="home-map-head"><div><strong>'+title+'</strong><small>'+desc+'</small></div><span aria-hidden="true">⛶</span></div><canvas id="home-map-'+id+'" width="360" height="160" aria-hidden="true"></canvas><div class="home-map-foot"><span id="home-value-'+id+'">Demo</span><b>Öffnen ›</b></div></button>').join('')+'</div></section>';
+}
+function previewBounds(point){
+ const [lon,lat]=point;return {west:lon-2.6,east:lon+2.6,south:lat-1.55,north:lat+1.55,w:360,h:160};
+}
+function previewField(canvas,layer,point,name){
+ const b=previewBounds(point),ctx=canvas.getContext('2d');drawLiveBase(ctx,b);
+ const small=document.createElement('canvas'),w=120,h=64;small.width=w;small.height=h;const c=small.getContext('2d'),img=c.createImageData(w,h);
+ for(let j=0;j<h;j++)for(let i=0;i<w;i++){
+  const [lon,lat]=lonlat((i+.5)/w*b.w,(j+.5)/h*b.h,b),s=demoObservationAdapter.sample(lon,lat,0,'winter'),color=liveColor(layer,s);
+  if(!color)continue;const rgb=rgbForLive(color),n=(j*w+i)*4;img.data[n]=rgb[0];img.data[n+1]=rgb[1];img.data[n+2]=rgb[2];img.data[n+3]=255;
+ }
+ c.putImageData(img,0,0);ctx.imageSmoothingEnabled=layer!=='radar';ctx.drawImage(small,0,0,b.w,b.h);
+ const geo=basemapData();drawAdmin(ctx,geo.states,b,'#222a3990',.65);drawAdmin(ctx,[geo.germany],b,'#202838',1.25);
+ ctx.beginPath();for(const f of geo.europeBorders)if(visibleBox(f.box,b))pathLine(ctx,f.coords,b);ctx.strokeStyle='#2a3443b5';ctx.lineWidth=.8;ctx.stroke();
+ if(layer==='wind')drawLiveWindArrows(ctx,b,0,'winter',50,.65);
+ const [x,y]=xy(...point,b);ctx.beginPath();ctx.arc(x,y,4,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();ctx.lineWidth=2;ctx.strokeStyle='#142b42';ctx.stroke();
+ ctx.font='bold 12px Arial,sans-serif';ctx.textAlign='center';ctx.textBaseline='bottom';ctx.strokeStyle='#172a40';ctx.lineWidth=3;ctx.strokeText(name,x,y-9);ctx.fillStyle='#fff';ctx.fillText(name,x,y-9);
+}
+function renderHomeMaps(){
+ document.querySelectorAll('[data-home-map]').forEach(b=>b.addEventListener('click',()=>openHomeMap(b.dataset.homeMap)));
+ const point=homeLocationPoint(location);if(!point)return;
+ for(const [id] of homeMapLayers){
+  const canvas=el('home-map-'+id),key=location.name+'/'+id;
+  if(!homePreviewCache.has(key)){
+   const preview=document.createElement('canvas');preview.width=360;preview.height=160;previewField(preview,id,point,location.name);homePreviewCache.set(key,preview);
+   if(homePreviewCache.size>24)homePreviewCache.delete(homePreviewCache.keys().next().value);
+  }
+  canvas.getContext('2d').drawImage(homePreviewCache.get(key),0,0);
+  const s=demoObservationAdapter.sample(...point,0,'winter'),f=v=>v.toLocaleString('de-DE',{maximumFractionDigits:1});
+  el('home-value-'+id).textContent=id==='radar'?(s.rate>0?f(s.rate)+' mm/h':'Trocken'):id==='temperature'?f(s.temp)+' °C':f(s.wind)+' km/h';
+ }
+}
+function setMapInfo(open){
+ mapInfoOpen=!!open;el('page-map').classList.toggle('map-info-open',mapInfoOpen);
+ el('map-info-toggle').setAttribute('aria-expanded',String(mapInfoOpen));
+}
+function enterMapFull(returnPage='map',point=null){
+ mapFullReturn=returnPage;mapFullScroll=typeof window!=='undefined'?window.scrollY:0;
+ mapFullScreen=true;el('page-map').classList.toggle('map-fullscreen',true);document.body?.classList.toggle('map-fullscreen-active',true);setMapInfo(false);
+ if(activePage!=='map')setPage('map');
+ if(point)centerView(...point);
+ renderMap();scheduleMap();
+}
+function exitMapFull(){
+ if(!mapFullScreen)return;
+ stopPlay();endMapGesture();setMapInfo(false);mapFullScreen=false;el('page-map').classList.toggle('map-fullscreen',false);document.body?.classList.toggle('map-fullscreen-active',false);
+ if(mapFullReturn!=='map'){setPage(mapFullReturn);if(typeof window!=='undefined')window.scrollTo({top:mapFullScroll,behavior:'instant'})}
+ else{refreshMap();if(typeof window!=='undefined')window.scrollTo({top:mapFullScroll,behavior:'instant'})}
+}
+function openHomeMap(id){
+ if(!homeMapLayers.some(p=>p[0]===id))return;
+ stopPlay();endMapGesture();mapSource='live';liveLayer=id;liveScenario='winter';liveMinute=0;terrainMode='weather-relief';
+ el('map-live-layer').value=id;el('map-live-scenario').value=liveScenario;el('map-terrain-mode').value=terrainMode;
+ mapRegion='Deutschland';mapZoom=3.2;const point=homeLocationPoint(location);mapCenter=null;mapPoint=point;mapPointName=point?location.name:'';
+ // Use the selected town as the camera anchor; adjust against full-size bounds.
+ if(point)centerView(...point);
+ enterMapFull('weather',point);
+}
+function updateFullMapLabels(){
+ el('map-full-title').textContent=el('map-layer-title').textContent;
+ el('map-full-subtitle').textContent=terrainMode==='topo'?'Topografie':mapSource==='live'?timeText(liveTime())+' · DEMO':mapModel+' · '+timeText(new Date(Date.UTC(2026,10,15,mapRun+mapHour)))+' · DEMO';
+ el('map-full-layer-tabs').hidden=mapSource!=='live'||terrainMode==='topo';
+ document.querySelectorAll('[data-full-layer]').forEach(b=>{const on=b.dataset.fullLayer===liveLayer;b.classList.toggle('active',on);b.setAttribute('aria-pressed',String(on))});
+ el('map-info-summary').textContent=terrainMode==='topo'?'Geländehöhen in Metern.':mapSource==='live'?el('map-layer-title').textContent+' · Simulierte Beobachtungen, keine Messdaten. '+el('map-interval').textContent+(liveLayer==='wind'?' Pfeile zeigen die Strömungsrichtung.':''):el('map-layer-title').textContent+' · '+mapModel+' · '+el('map-valid').textContent+' · '+el('map-interval').textContent;
+}
+function bindFullMap(){
+ el('map-full-open').addEventListener('click',()=>enterMapFull('map'));
+ el('map-full-close').addEventListener('click',exitMapFull);
+ el('map-info-toggle').addEventListener('click',()=>setMapInfo(!mapInfoOpen));el('map-info-close').addEventListener('click',()=>setMapInfo(false));
+ document.querySelectorAll('[data-full-layer]').forEach(b=>b.addEventListener('click',()=>{stopPlay();liveLayer=b.dataset.fullLayer;el('map-live-layer').value=liveLayer;refreshMap()}));
+ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&mapFullScreen){if(mapInfoOpen)setMapInfo(false);else exitMapFull()}});
+ if(typeof window!=='undefined')window.addEventListener('resize',()=>{if(mapFullScreen)scheduleMap()});
 }
 
 
@@ -934,7 +1060,15 @@ const modelSelect=el('map-model'),parameterSelect=el('map-parameter');
 const fields=Object.fromEntries(mapParameters.map(p=>[p.id,p]));
 const mapOptions=()=>Object.keys(mapModels).filter(m=>mapRegion==='Deutschland'||m!=='ICON-D2');
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
-const baseBounds=()=>mapRegion==='Deutschland'?{west:3.8,east:16.7,south:46.3,north:55.8,w:640,h:760}:{west:-25,east:42,south:34,north:71,w:740,h:680};
+function baseBounds(){
+ const b=mapRegion==='Deutschland'?{west:3.8,east:16.7,south:46.3,north:55.8,w:640,h:760}:{west:-25,east:42,south:34,north:71,w:740,h:680};
+ if(!mapFullScreen||!mapCanvas.parentElement?.clientWidth||!mapCanvas.parentElement?.clientHeight)return b;
+ const box=mapCanvas.parentElement,w=box.clientWidth,h=box.clientHeight,scale=Math.min(2,900/Math.max(w,h)),ratio=(w/h)/(b.w/b.h);
+ if(ratio>1){const pad=(b.east-b.west)*(ratio-1)/2;b.west-=pad;b.east+=pad}
+ else{const pad=(b.north-b.south)*(1/ratio-1)/2;b.south-=pad;b.north+=pad}
+ b.south=clamp(b.south,-80,80);b.north=clamp(b.north,-80,80);
+ b.w=Math.max(120,Math.round(w*scale));b.h=Math.max(120,Math.round(h*scale));return b;
+}
 function bounds(){
  const b=baseBounds(),cx=mapCenter?mapCenter[0]:(b.west+b.east)/2,cy=mapCenter?mapCenter[1]:(b.south+b.north)/2,dx=(b.east-b.west)/2/mapZoom,dy=(b.north-b.south)/2/mapZoom;
  return {...b,west:cx-dx,east:cx+dx,south:cy-dy,north:cy+dy};
@@ -1013,8 +1147,10 @@ function drawMap(fast=false){
   for(let j=0;j<bh;j++){const lat=b.north-j/(bh-1)*(b.north-b.south);for(let i=0;i<bw;i++){const lon=b.west+i/(bw-1)*(b.east-b.west),c=gridSample(p,lon,lat).color,n=(j*bw+i)*4;img.data[n]=c[0];img.data[n+1]=c[1];img.data[n+2]=c[2];img.data[n+3]=255}}
   buf.putImageData(img,0,0);ctx.imageSmoothingEnabled=mapZoom<4;ctx.drawImage(mapBuffer,0,0,b.w,b.h);
  }
+ const liveContinuous=mapSource==='live'&&terrainMode!=='topo'&&['temperature','wind'].includes(liveLayer);
+ if(liveContinuous)drawLiveField(ctx,b,fast);
  drawTerrain(ctx,b,fast);
- if(mapSource==='live'&&terrainMode!=='topo'){drawLiveField(ctx,b,fast);drawLiveSymbols(ctx,b)}
+ if(mapSource==='live'&&terrainMode!=='topo'){if(!liveContinuous)drawLiveField(ctx,b,fast);drawLiveSymbols(ctx,b);if(liveLayer==='wind')drawLiveWindArrows(ctx,b)}
  drawGeography(ctx,b);drawOnlineMap(ctx,b,fast);drawBasemap(ctx,b);drawMapPlaces(ctx,b);
  if(mapSource==='live'&&terrainMode!=='topo')drawLiveStrikes(ctx,b);
  if(mapPoint){const [x,y]=xy(...mapPoint,b);if(x>=0&&x<=b.w&&y>=0&&y<=b.h){ctx.beginPath();ctx.arc(x,y,8,0,Math.PI*2);ctx.lineWidth=3;ctx.strokeStyle='#fff';ctx.stroke();ctx.lineWidth=1;ctx.strokeStyle='#192735';ctx.stroke()}}
@@ -1082,6 +1218,7 @@ function mapLabels(){
   el('map-play').setAttribute('aria-label',mapTimer===null?'Radar-Zeitverlauf abspielen':'Wiedergabe pausieren');
  }
  el('map-zoom-minus').disabled=mapZoom<=1;el('map-zoom-plus').disabled=mapZoom>=24;el('map-zoom-level').textContent=mapZoom.toFixed(1)+'×';
+ updateFullMapLabels();
 }
 function refreshMap(){mapLabels();legend();drawMap();renderSample()}
 function scheduleMap(){if(mapFrame!==null)return;mapFrame=requestAnimationFrame(()=>{mapFrame=null;if(mapGesture){drawMapGesture();el('map-zoom-minus').disabled=mapZoom<=1;el('map-zoom-plus').disabled=mapZoom>=24;el('map-zoom-level').textContent=mapZoom.toFixed(1)+'×'}else refreshMap()})}
@@ -1115,6 +1252,7 @@ el('map-live-layer').addEventListener('change',e=>{stopPlay();liveLayer=e.target
 el('map-live-scenario').addEventListener('change',e=>{stopPlay();liveScenario=e.target.value;scheduleMap()});
 el('map-live-lightning').addEventListener('change',e=>{liveLightning=e.target.checked;scheduleMap()});
 el('map-live-symbols').addEventListener('change',e=>{liveSymbols=e.target.checked;scheduleMap()});
+bindFullMap();
 el('map-time').addEventListener('input',e=>{if(mapSource==='live')liveMinute=+e.target.value;else mapHour=+e.target.value;scheduleMap()});
 el('map-play').addEventListener('click',()=>{if(mapTimer!==null){stopPlay();return}el('map-play').textContent='Ⅱ';el('map-play').setAttribute('aria-label','Wiedergabe pausieren');mapTimer=setInterval(()=>{if(mapSource==='live'){liveMinute=liveMinute>=0?-120:liveMinute+5;el('map-time').value=liveMinute}else{const m=mapModels[mapModel];mapHour=mapHour+m.step>m.max?minHour():mapHour+m.step;el('map-time').value=mapHour}scheduleMap()},480)});
 const mapPointers=new Map();
