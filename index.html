@@ -18,6 +18,7 @@
 @media(min-width:760px){.map-panel{max-width:880px;margin:auto;padding:20px}.map-main{max-width:700px;margin:auto}.map-main canvas{width:auto;max-width:100%;max-height:690px;margin:auto}.map-toolbar{grid-template-columns:1fr 1fr 1.3fr}.map-select:last-child{grid-column:auto}}
 @media(max-width:759px){.map-toolbar .map-select:last-child{grid-column:1/-1}}
 .map-main canvas{touch-action:none;cursor:grab}.map-main canvas:active{cursor:grabbing}.map-search-wrap{position:relative;margin:0 0 10px}.map-search-wrap input{width:100%;padding:10px 12px;border:1px solid #37506a;border-radius:11px;background:#12283e;color:var(--text);font:inherit;font-size:13px}.map-search-results{position:absolute;left:0;right:0;top:calc(100% + 5px);z-index:4;display:grid;max-height:250px;overflow:auto;background:#102338;border:1px solid #46627a;border-radius:12px;box-shadow:0 10px 30px #0006}.map-search-results:empty{display:none}.map-search-results button{font-size:13px;text-align:left;padding:11px 12px;border-bottom:1px solid var(--line)}.map-search-results button:last-child{border:0}.map-search-results button:hover{background:#27445d}.map-display-options{display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:10px;color:var(--muted);font-size:12px}.map-display-options label{display:flex;align-items:center;gap:6px}.map-display-options input{accent-color:var(--accent)}.map-zoom .zoom-label{font-size:10px;text-align:center;padding:5px 0;background:#101e30e8;border-radius:6px;color:#d9e7f4}.map-interval{font-size:11px;line-height:1.45;color:#bdd4ea;padding:0 2px 8px}.map-interval:empty{display:none}.map-caption a{color:#9bc9f6}.map-hint{font-size:10px;color:var(--muted);margin:7px 2px 0}
+.live-map-controls{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:12px}.live-map-controls .map-select:first-child{grid-column:1/-1}.live-map-note{font-size:12px;line-height:1.4;color:var(--muted);margin:4px 0 11px}.live-lightning-note{display:flex;flex-wrap:wrap;gap:10px;font-size:11px;color:var(--muted);margin:8px 0}.live-lightning-note span{display:flex;align-items:center;gap:5px}.live-lightning-note i{display:inline-block;width:9px;height:9px;border-radius:50%;border:1px solid #694526}.live-map-controls label.live-overlay{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
 [hidden]{display:none!important}
 </style>
 </head>
@@ -39,7 +40,8 @@
       </div>
     </section>
     <section id="page-map" class="page" aria-label="Karte">
-      <div class="page-title"><h2>Wetterkarte</h2><p>Wettermodelle und meteorologische Parameter</p></div>
+      <div class="page-title"><h2>Wetterkarte</h2><p>Live-Wetter und meteorologische Modellvorhersagen</p></div>
+      <div class="segmented" id="map-source"><button data-map-source="model" class="active" aria-pressed="true">Modelle</button><button data-map-source="live" aria-pressed="false">Live-Wetter</button></div>
       <div class="segmented" id="map-region"><button class="active" data-region="Deutschland">Deutschland</button><button data-region="Europa">Europa</button></div>
       <div class="panel map-panel">
         <div class="section-head"><div><h2 id="map-layer-title">Temperatur · 2 m</h2><p id="map-view-description">Modellkarte · synthetische Testfelder</p></div><span class="badge" id="map-model-badge">ICON-D2</span></div>
@@ -49,7 +51,15 @@
           <label class="map-select"><span>Modelllauf (Demo)</span><select id="map-run" aria-label="Modelllauf"><option value="0">15.11. · 00 UTC</option><option value="6">15.11. · 06 UTC</option><option value="12" selected>15.11. · 12 UTC</option></select></label>
           <label class="map-select"><span>Parameter</span><select id="map-parameter" aria-label="Kartenparameter"></select></label>
         </div>
-        <div class="map-run-line" id="map-run-info"><span id="map-valid"></span><span>Testdaten · keine Vorhersage</span></div>
+        <div id="map-live-controls" hidden>
+          <div class="live-map-controls">
+            <label class="map-select"><span>Live-Ebene (Demo)</span><select id="map-live-layer" aria-label="Live-Wetter-Ebene"><option value="radar">Niederschlagsradar</option><option value="types">Niederschlagsart · Regen / Schnee / Eis</option><option value="snowfall">Schneefall</option><option value="snowcover">Schneehöhe</option><option value="lightning">Blitzaktivität</option></select></label>
+            <label class="map-select"><span>Demo-Wetterlage</span><select id="map-live-scenario" aria-label="Beispielwetterlage"><option value="winter">Winterlage</option><option value="summer">Sommergewitter</option></select></label>
+            <label class="live-overlay"><input type="checkbox" id="map-live-lightning"> Blitze überlagern</label>
+          </div>
+          <p class="live-map-note">Simulierte Beobachtungen · keine aktuellen Messdaten. Die Zeitachse zeigt die letzten zwei Stunden der Demo.</p>
+        </div>
+        <div class="map-run-line" id="map-run-info"><span id="map-valid"></span><span id="map-data-notice">Testdaten · keine Vorhersage</span></div>
         <div id="map-interval" class="map-interval"></div>
         <div class="map-search-wrap"><input id="map-search" type="search" placeholder="Ort oder Landkreis auf Karte finden…" aria-label="Ort oder Landkreis suchen" autocomplete="off"><div id="map-search-results" class="map-search-results"></div></div>
         <div class="map-display-options"><label><input id="map-show-districts" type="checkbox" checked> Kreise / Gemeinden</label><label><input id="map-show-places" type="checkbox" checked> Orte</label><label><input id="map-show-roads" type="checkbox" checked> Straßen</label><label><input id="map-show-terrain" type="checkbox" checked> Gebirge / Gipfel</label><label><input id="map-show-water" type="checkbox" checked> Gewässer</label></div>
@@ -60,6 +70,7 @@
         <div id="map-tile-status" class="map-hint" role="status">Straßen und zusätzliche Ortsdetails werden online geladen.</div>
         <div class="map-hint"><a style="color:inherit" href="https://openfreemap.org/" target="_blank" rel="noopener">OpenFreeMap</a> · © <a style="color:inherit" href="https://openmaptiles.org/" target="_blank" rel="noopener">OpenMapTiles</a> · Daten von <a style="color:inherit" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a></div>
         <div class="map-legend"><div class="legend-head"><span id="legend-name"></span><span id="legend-unit"></span></div><div class="legend-strip" id="legend-strip"></div><div class="legend-ticks" id="legend-ticks"></div></div>
+        <div class="live-lightning-note" id="live-lightning-note" hidden><span><i style="background:#ffec55"></i>0–5 min</span><span><i style="background:#ffaa3b"></i>5–15 min</span><span><i style="background:#e97143"></i>15–30 min</span></div>
         <div class="map-sample" id="map-sample"><span>Tippe auf die Karte, um einen Beispielwert abzulesen.</span></div>
         <div class="map-actions" id="map-time-controls"><button class="map-play" id="map-play" aria-label="Vorhersage abspielen">▶</button><div class="map-control"><span id="time-icon"></span><input type="range" id="map-time" min="0" max="48" value="0" aria-label="Vorhersagezeit"><strong id="map-time-label">+0 Std.</strong></div></div>
         <p class="map-caption">Relief: <a href="https://www.ncei.noaa.gov/products/etopo-global-relief-model" target="_blank" rel="noopener">NOAA ETOPO1</a> (Offline-Raster, 20′; resampled via <a href="https://github.com/linad3d/contourlines" target="_blank" rel="noopener">Contourlines</a>); <a href="https://registry.opendata.aws/terrain-tiles/" target="_blank" rel="noopener">Mapzen/Tilezen Terrain Tiles</a>, <a href="https://github.com/tilezen/joerd/blob/master/docs/attribution.md" target="_blank" rel="noopener">Höhendaten-Quellen und Lizenzen</a>. Europe terrain data produced using Copernicus data and information funded by the European Union – EU-DEM layers; © offene Daten Österreichs – Digitales Geländemodell (DGM) Österreich; © Kartverket; UK terrain data © Environment Agency copyright and/or database right 2015; ETOPO1: NOAA; GMTED2010 and SRTM courtesy of USGS. Relief visuell überhöht, Höhenwerte unverändert.</p>
@@ -650,6 +661,124 @@ function drawTerrain(ctx,b,fast=false){
  ctx.save();ctx.imageSmoothingEnabled=true;ctx.drawImage(terrainCanvas,0,0,b.w,b.h);ctx.restore();if(!fast)terrainStatus();
 }
 
+// Observation-map prototype. Replace demoObservationAdapter with a licensed
+// observation feed; a model forecast is never presented as an observation.
+const liveLayers={
+ radar:{label:'Niederschlagsradar',unit:'mm/h',stops:[0.1,0.5,2,5,10,25,50],colors:['#a5d5f0','#59a4ee','#2570c6','#2ebe96','#e7d74c','#f5813f','#b92457']},
+ types:{label:'Niederschlagsart',unit:'',stops:['Regen','Schneeregen','Schnee','Gefr. Regen'],colors:['#258fde','#a178d4','#e1efff','#ed428d']},
+ snowfall:{label:'Schneefall (Wasseräquivalent)',unit:'mm/h',stops:[0.1,0.5,1,2,5,10],colors:['#e2f0ff','#9bd4f5','#62a5e9','#6265cb','#9b4cba','#d54f9f']},
+ snowcover:{label:'Schneehöhe',unit:'cm',stops:[1,3,5,10,20,40,80],colors:['#e9f4ff','#b9dff9','#83b6f0','#587fdb','#6751bd','#9e4cd0','#df7edc']},
+ lightning:{label:'Blitzaktivität · letzte 30 Min.',unit:'Alter',stops:['0–5 min','5–15 min','15–30 min'],colors:['#ffec55','#ffaa3b','#e97143']}
+};
+let mapSource='model',liveLayer='radar',liveScenario='winter',liveMinute=0,liveLightning=false;
+const liveTimeBases={winter:Date.UTC(2026,10,15,12,0),summer:Date.UTC(2026,6,15,14,0)};
+const liveGrid=.025;
+const liveGauss=(x,y,cx,cy,sx,sy)=>Math.exp(-.5*((x-cx)/sx)**2-.5*((y-cy)/sy)**2);
+function liveObservation(lon,lat,minute=liveMinute,scenario=liveScenario){
+ const t=minute/60,dx=lon-10,dy=lat-51;
+ const texture=.68+.32*Math.sin(lon*19+lat*13)*Math.cos(lat*25-lon*7);
+ let rate=0,temp=18,cover=0;
+ if(scenario==='summer'){
+  const cells=[[7.4,50.2,48,.32,.23],[9.1,51.0,65,.28,.22],[10.3,49.4,32,.35,.25],[12.3,52.6,49,.3,.23],[13.2,48.5,40,.26,.2],[5.4,47.6,28,.4,.25]];
+  for(const [x,y,a,sx,sy] of cells){rate+=a*liveGauss(lon,lat,x+t*.55,y+t*.2,sx,sy)+3.2*liveGauss(lon,lat,x+t*.55,y+t*.2,sx*2.5,sy*2.1)}
+  rate*=texture;
+ }else{
+  const frontX=8.5+t*.7+(lat-51)*.38+Math.sin(lat*1.8)*.37;
+  const band=liveGauss(lon,lat,frontX,51,.63,4.5);
+  rate=(band*(3.4+4.8*liveGauss(lon,lat,9+t*.7,49.6,1.5,1.4))+2.5*liveGauss(lon,lat,13+t*.5,52.5,1.4,.85))*texture;
+  const h=Math.max(0,offlineHeight(lon,lat));temp=4.4-dy*.62-dx*.34-h*.006;
+  cover=offlineHeight(lon,lat)<-5?0:Math.max(0,Math.min(110,(-temp+.2)*2.4+Math.max(0,h-650)*.025));
+ }
+ if(rate<.1)rate=0;
+ const type=rate===0?'none':temp<=-.7?(scenario==='winter'&&lat>51.4&&lat<51.7&&lon>9&&lon<10.5?'freezing':'snow'):temp<=1.1?'mixed':'rain';
+ return {rate,type,snowfall:type==='snow'?rate:type==='mixed'?rate*.4:0,cover};
+}
+// Fixed, deterministic demo strikes: positions and times are stable between
+// zooms and playback frames. Their age is relative to the displayed frame.
+function makeDemoStrikes(){
+ const strikes=[];let seed=117;
+ const rand=()=>{seed=(Math.imul(1664525,seed)+1013904223)>>>0;return seed/4294967296};
+ const cells=[[7.4,50.2],[9.1,51],[10.3,49.4],[12.3,52.6],[13.2,48.5],[5.4,47.6]];
+ for(let m=-150;m<=0;m+=2)for(const [x,y] of cells){
+  if(rand()<.32)continue;
+  strikes.push({lon:x+m/60*.55+(rand()-.5)*.6,lat:y+m/60*.2+(rand()-.5)*.45,minute:m});
+ }
+ return strikes;
+}
+const demoStrikes=makeDemoStrikes();
+const demoObservationAdapter={
+ kind:'demo',sample:(lon,lat,minute,scenario)=>liveObservation(Math.round(lon/liveGrid)*liveGrid,Math.round(lat/liveGrid)*liveGrid,minute,scenario),
+ strikes:(minute,scenario)=>scenario==='summer'?demoStrikes.filter(s=>s.minute<=minute&&s.minute>minute-30):[]
+};
+function liveTime(){return new Date(liveTimeBases[liveScenario]+liveMinute*60000)}
+function liveColor(layer,s){
+ const p=liveLayers[layer];let i;
+ if(layer==='types'){i=['rain','mixed','snow','freezing'].indexOf(s.type);return i<0?null:p.colors[i]}
+ const v=layer==='radar'?s.rate:layer==='snowfall'?s.snowfall:s.cover;
+ if(v<p.stops[0])return null;
+ i=0;while(i<p.stops.length-1&&v>=p.stops[i+1])i++;return p.colors[i];
+}
+const liveRGB=new Map();
+function rgbForLive(hex){if(!liveRGB.has(hex))liveRGB.set(hex,[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)));return liveRGB.get(hex)}
+let liveBuffer=null,liveRasterKey='';
+function drawLiveBase(ctx,b){
+ ctx.fillStyle='#a9bdca';ctx.fillRect(0,0,b.w,b.h);
+ ctx.fillStyle='#d8ddd8';
+ for(const f of mapBoundaries){const polys=f.geometry.type==='Polygon'?[f.geometry.coordinates]:f.geometry.coordinates;for(const poly of polys){ctx.beginPath();for(const ring of poly)pathRing(ctx,ring,b);ctx.fill('evenodd')}}
+}
+function drawLiveField(ctx,b,fast){
+ if(liveLayer==='lightning')return;
+ const w=Math.round(b.w/(fast?7:2.5)),h=Math.round(b.h/(fast?7:2.5)),key=[liveLayer,liveScenario,liveMinute,b.west,b.east,b.south,b.north,w,h].join('/');
+ if(!liveBuffer)liveBuffer=document.createElement('canvas');
+ if(key!==liveRasterKey){
+  liveRasterKey=key;liveBuffer.width=w;liveBuffer.height=h;
+  const c=liveBuffer.getContext('2d'),im=c.createImageData(w,h),samples=new Map();
+  for(let j=0;j<h;j++){
+   const lat=b.north-(j+.5)/h*(b.north-b.south),iy=Math.round(lat/liveGrid);
+   for(let i=0;i<w;i++){
+    const lon=b.west+(i+.5)/w*(b.east-b.west),ix=Math.round(lon/liveGrid),k=ix+':'+iy;
+    if(!samples.has(k))samples.set(k,liveColor(liveLayer,demoObservationAdapter.sample(lon,lat,liveMinute,liveScenario)));
+    const color=samples.get(k);if(!color)continue;
+    const rgb=rgbForLive(color),n=(j*w+i)*4;
+    im.data[n]=rgb[0];im.data[n+1]=rgb[1];im.data[n+2]=rgb[2];im.data[n+3]=layerAlpha(liveLayer);
+   }
+  }
+  c.putImageData(im,0,0);
+ }
+ ctx.save();ctx.imageSmoothingEnabled=false;ctx.drawImage(liveBuffer,0,0,b.w,b.h);ctx.restore();
+}
+function layerAlpha(layer){return layer==='snowcover'?185:230}
+function drawLiveStrikes(ctx,b){
+ if(liveLayer!=='lightning'&&!liveLightning)return;
+ ctx.save();const strikes=demoObservationAdapter.strikes(liveMinute,liveScenario);
+ for(const s of strikes){
+  if(s.lon<b.west||s.lon>b.east||s.lat<b.south||s.lat>b.north)continue;
+  const [x,y]=xy(s.lon,s.lat,b),age=liveMinute-s.minute,r=mapZoom>=5?4:3;
+  ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fillStyle=liveLayers.lightning.colors[age<=5?0:age<=15?1:2];ctx.fill();ctx.strokeStyle='#4f3322';ctx.lineWidth=1;ctx.stroke();
+ }
+ ctx.restore();
+}
+function liveSampleText(lon,lat){
+ const s=demoObservationAdapter.sample(lon,lat,liveMinute,liveScenario),f=v=>v.toLocaleString('de-DE',{maximumFractionDigits:1});
+ if(liveLayer==='types')return ({none:'Trocken',rain:'Regen',mixed:'Schneeregen',snow:'Schnee',freezing:'Gefrierender Regen'})[s.type];
+ if(liveLayer==='lightning'){
+  const count=demoObservationAdapter.strikes(liveMinute,liveScenario).filter(p=>Math.hypot((p.lon-lon)*111*Math.cos(lat*Math.PI/180),(p.lat-lat)*111)<=20).length;
+  return count+' Blitze / 20 km';
+ }
+ return f(liveLayer==='radar'?s.rate:liveLayer==='snowfall'?s.snowfall:s.cover)+' '+liveLayers[liveLayer].unit;
+}
+function liveLegend(){
+ const p=liveLayers[liveLayer];el('legend-name').textContent=p.label;el('legend-unit').textContent=p.unit;
+ const n=p.colors.length;el('legend-strip').style.background='linear-gradient(90deg,'+p.colors.map((c,i)=>c+' '+(i/n*100)+'%, '+c+' '+((i+1)/n*100)+'%').join(',')+')';
+ el('legend-ticks').innerHTML=p.stops.map(v=>'<span>'+v.toLocaleString('de-DE')+'</span>').join('');
+ el('live-lightning-note').hidden=liveLayer==='lightning'||!liveLightning;
+}
+function setMapSource(source){
+ stopPlay();endMapGesture();mapSource=source;
+ if(terrainMode==='topo'){terrainMode='weather-relief';el('map-terrain-mode').value=terrainMode}
+ renderMap();
+}
+
 
 // Geographic borders: Natural Earth, 1:110m Admin 0 (public domain).
 const mapBoundaries = EXTRA_GEO.countries;
@@ -798,20 +927,24 @@ function gridSample(p,lon,lat){
  if(!gridCache.has(cell)){const value=demoValue(p.mode,ix*step,iy*step);gridCache.set(cell,{value,color:Number.isFinite(value)?colorAt(p,value):[95,110,125]})}
  return gridCache.get(cell);
 }
-function mapContentKey(){return [mapRegion,mapModel,mapRun,mapHour,mapLayer,terrainMode,showDistricts,showPlaces,showRoads,showTerrain,showWater,mapPoint?.join(',')].join('/')}
+function mapContentKey(){return [mapRegion,mapSource,mapModel,mapRun,mapHour,mapLayer,liveLayer,liveScenario,liveMinute,liveLightning,terrainMode,showDistricts,showPlaces,showRoads,showTerrain,showWater,mapPoint?.join(',')].join('/')}
 function drawMap(fast=false){
  const p=fields[mapLayer],b=bounds();mapView=b;
  if(mapCanvas.width!==b.w)mapCanvas.width=b.w;if(mapCanvas.height!==b.h)mapCanvas.height=b.h;const ctx=mapCanvas.getContext('2d');
  if(!ctx)return;
  ctx.clearRect(0,0,b.w,b.h);
- if(terrainMode!=='topo'){
+ if(mapSource==='live'&&terrainMode!=='topo'){
+  drawLiveBase(ctx,b);
+ }else if(terrainMode!=='topo'){
   const bw=Math.round(b.w/(fast?7:3.5)),bh=Math.round(b.h/(fast?7:3.5));
   mapBuffer.width=bw;mapBuffer.height=bh;const buf=mapBuffer.getContext('2d');const img=buf.createImageData(bw,bh);
   for(let j=0;j<bh;j++){const lat=b.north-j/(bh-1)*(b.north-b.south);for(let i=0;i<bw;i++){const lon=b.west+i/(bw-1)*(b.east-b.west),c=gridSample(p,lon,lat).color,n=(j*bw+i)*4;img.data[n]=c[0];img.data[n+1]=c[1];img.data[n+2]=c[2];img.data[n+3]=255}}
   buf.putImageData(img,0,0);ctx.imageSmoothingEnabled=mapZoom<4;ctx.drawImage(mapBuffer,0,0,b.w,b.h);
  }
  drawTerrain(ctx,b,fast);
+ if(mapSource==='live'&&terrainMode!=='topo')drawLiveField(ctx,b,fast);
  drawGeography(ctx,b);drawOnlineMap(ctx,b,fast);drawBasemap(ctx,b);drawMapPlaces(ctx,b);
+ if(mapSource==='live'&&terrainMode!=='topo')drawLiveStrikes(ctx,b);
  if(mapPoint){const [x,y]=xy(...mapPoint,b);if(x>=0&&x<=b.w&&y>=0&&y<=b.h){ctx.beginPath();ctx.arc(x,y,8,0,Math.PI*2);ctx.lineWidth=3;ctx.strokeStyle='#fff';ctx.stroke();ctx.lineWidth=1;ctx.strokeStyle='#192735';ctx.stroke()}}
  if(mapSnapshot.width!==b.w)mapSnapshot.width=b.w;if(mapSnapshot.height!==b.h)mapSnapshot.height=b.h;
  const snap=mapSnapshot.getContext('2d');snap.clearRect(0,0,b.w,b.h);snap.drawImage(mapCanvas,0,0);snapshotBounds=b;snapshotKey=mapContentKey();
@@ -829,13 +962,20 @@ function drawMapGesture(){
  drawMap(true);
 }
 function legend(){
+ el('live-lightning-note').hidden=true;
  if(terrainMode==='topo'){el('legend-name').textContent='Geländehöhe';el('legend-unit').textContent='m';el('legend-strip').style.background='linear-gradient(90deg,'+topoPalette.join(',')+')';el('legend-ticks').innerHTML=topoStops.map(v=>'<span>'+v.toLocaleString('de-DE')+'</span>').join('');return}
+ if(mapSource==='live'){liveLegend();return}
  const p=fields[mapLayer];el('legend-name').textContent=p.label;el('legend-unit').textContent=p.unit;
  el('legend-strip').style.background='linear-gradient(90deg,'+palettes[p.palette].join(',')+')';
  el('legend-ticks').innerHTML=p.stops.map(v=>'<span>'+v.toLocaleString('de-DE')+'</span>').join('');
 }
 function renderSample(){
  const p=fields[mapLayer];if(!mapPoint){el('map-sample').innerHTML='<span>Tippe auf die Karte, um einen Beispielwert abzulesen.</span>';return}
+ if(mapSource==='live'&&terrainMode!=='topo'){
+  const [lon,lat]=mapPoint;el('map-sample').innerHTML='<div>'+liveLayers[liveLayer].label+' · Demo<br><span>'+lat.toFixed(3)+'° N · '+Math.abs(lon).toFixed(3)+'° '+(lon<0?'W':'O')+'</span></div><b>'+liveSampleText(lon,lat)+'</b>';
+  const district=districtAt(lon,lat),name=mapPointName||(district?district.type+' '+district.name:'');
+  if(name){const label=document.createElement('span');label.textContent=name+' · ';el('map-sample').firstElementChild.prepend(label)}return;
+ }
  const [lon,lat]=mapPoint,value=terrainMode==='topo'?terrainHeight(lon,lat):gridSample(p,lon,lat).value;
  const v=value.toLocaleString('de-DE',{maximumFractionDigits:p.id==='visibility'?2:1});
  el('map-sample').innerHTML='<div>'+(terrainMode==='topo'?'Geländehöhe (ca.)':p.label)+'<br><span>'+lat.toFixed(3)+'° N · '+Math.abs(lon).toFixed(3)+'° '+(lon<0?'W':'O')+'</span></div><b>'+(terrainMode==='topo'?Math.round(value).toLocaleString('de-DE')+' m':v+' '+p.unit)+'</b>';
@@ -847,6 +987,9 @@ function minHour(){const step=mapModels[mapModel].step;return Math.ceil(fields[m
 function mapLabels(){
  const p=fields[mapLayer];el('map-layer-title').textContent=terrainMode==='topo'?'Topografie · Geländehöhe':p.label;el('map-model-badge').textContent=terrainMode==='topo'?'Relief':mapModel;el('map-overlay-model').textContent=terrainMode==='topo'?'TOPO':mapModel;
  el('map-weather-controls').hidden=terrainMode==='topo';el('map-time-controls').hidden=terrainMode==='topo';el('map-run-info').hidden=terrainMode==='topo';
+ el('map-live-controls').hidden=mapSource!=='live'||terrainMode==='topo';
+ el('map-data-notice').textContent=mapSource==='live'?'Demo · keine Messdaten':'Testdaten · keine Vorhersage';
+ document.querySelectorAll('[data-map-source]').forEach(b=>{const on=b.dataset.mapSource===mapSource;b.classList.toggle('active',on);b.setAttribute('aria-pressed',String(on))});
  el('map-view-description').textContent=terrainMode==='topo'?'Echtes Geländemodell · Höhen in Metern':'Modellkarte · synthetische Testfelder';
  el('map-gesture-hint').textContent='Ziehen zum Verschieben · Zwei Finger zum Zoomen · Antippen zum Ablesen '+(terrainMode==='topo'?'der Geländehöhe':'eines Modellrasterwerts');
  el('map-time-label').textContent='+'+mapHour+' Std.';
@@ -854,6 +997,17 @@ function mapLabels(){
  el('map-valid').textContent='Gültig: '+timeText(date);
  const n=p.id==='rainTotal'?mapHour:p.interval;el('map-interval').textContent=n>0?'Summenzeitraum: '+timeText(new Date(date.getTime()-n*3600000))+' – '+timeText(date):(p.id==='rainTotal'?'Summe seit Modellstart: 0 mm':p.id==='rainrate'?'Momentane Rate (mm/h)':'');
  if(terrainMode==='topo')el('map-interval').textContent='';
+ if(mapSource==='live'&&terrainMode!=='topo'){
+  el('map-weather-controls').hidden=true;
+  el('map-layer-title').textContent=liveLayers[liveLayer].label;
+  el('map-model-badge').textContent='LIVE · DEMO';el('map-overlay-model').textContent='OBS';
+  el('map-view-description').textContent='Beobachtungskarte · simulierte Messdaten';
+  el('map-valid').textContent='Demo: '+timeText(liveTime());
+  el('map-interval').textContent=liveLayer==='lightning'?(liveScenario==='winter'?'Keine Beispielblitze · Sommergewitter auswählen, um Blitze zu testen':'Blitzereignisse der letzten 30 Minuten'):liveLayer==='snowcover'?'Beispiel-Schneedecke (keine Echtzeitmessung)':'5-Minuten-Zeitschritte · keine Vorhersage';
+  el('map-time-label').textContent=liveMinute===0?'Aktuell (Demo)':Math.abs(liveMinute)+' Min. zuvor';
+  el('map-gesture-hint').textContent='Ziehen zum Verschieben · Zwei Finger zum Zoomen · Antippen zum Ablesen';
+  el('map-play').setAttribute('aria-label',mapTimer===null?'Radar-Zeitverlauf abspielen':'Wiedergabe pausieren');
+ }
  el('map-zoom-minus').disabled=mapZoom<=1;el('map-zoom-plus').disabled=mapZoom>=24;el('map-zoom-level').textContent=mapZoom.toFixed(1)+'×';
 }
 function refreshMap(){mapLabels();legend();drawMap();renderSample()}
@@ -872,18 +1026,23 @@ function renderMap(){
  if(fields[mapLayer].interval>model.max)mapLayer='rain24';
  const available=mapParameters.filter(p=>p.interval<=model.max),groups=[...new Set(available.map(p=>p.group))];
  parameterSelect.innerHTML=groups.map(g=>'<optgroup label="'+g+'">'+available.filter(p=>p.group===g).map(p=>'<option value="'+p.id+'" '+(p.id===mapLayer?'selected':'')+'>'+p.label+'</option>').join('')+'</optgroup>').join('');
- const time=el('map-time');time.max=model.max;time.step=model.step;time.min=minHour();mapHour=clamp(Math.round(mapHour/model.step)*model.step,minHour(),model.max);time.value=mapHour;
+ const time=el('map-time');if(mapSource==='live'){time.max=0;time.step=5;time.min=-120;time.value=liveMinute;time.setAttribute('aria-label','Beobachtungszeit (Demo)')}
+ else{time.max=model.max;time.step=model.step;time.min=minHour();mapHour=clamp(Math.round(mapHour/model.step)*model.step,minHour(),model.max);time.value=mapHour;time.setAttribute('aria-label','Vorhersagezeit')}
  document.querySelectorAll('[data-region]').forEach(b=>b.classList.toggle('active',b.dataset.region===mapRegion));
  refreshMap();
 }
-function stopPlay(){if(mapTimer!==null){clearInterval(mapTimer);mapTimer=null}el('map-play').textContent='▶';el('map-play').setAttribute('aria-label','Vorhersage abspielen')}
-function openMapLayer(id,model){stopPlay();if(terrainMode==='topo'){terrainMode='weather-relief';el('map-terrain-mode').value=terrainMode}if(id&&fields[id])mapLayer=id;if(model&&mapModels[model]){mapModel=model;if(model==='ICON-D2'&&mapRegion!=='Deutschland'){mapRegion='Deutschland';mapZoom=1;mapCenter=null;mapPoint=null;mapPointName=''}}renderMap();setPage('map')}
+function stopPlay(){if(mapTimer!==null){clearInterval(mapTimer);mapTimer=null}el('map-play').textContent='▶';el('map-play').setAttribute('aria-label',mapSource==='live'?'Radar-Zeitverlauf abspielen':'Vorhersage abspielen')}
+function openMapLayer(id,model){stopPlay();mapSource='model';if(terrainMode==='topo'){terrainMode='weather-relief';el('map-terrain-mode').value=terrainMode}if(id&&fields[id])mapLayer=id;if(model&&mapModels[model]){mapModel=model;if(model==='ICON-D2'&&mapRegion!=='Deutschland'){mapRegion='Deutschland';mapZoom=1;mapCenter=null;mapPoint=null;mapPointName=''}}renderMap();setPage('map')}
 modelSelect.addEventListener('change',()=>{stopPlay();mapModel=modelSelect.value;renderMap()});
 parameterSelect.addEventListener('change',()=>{stopPlay();mapLayer=parameterSelect.value;renderMap()});
 el('map-run').addEventListener('change',e=>{mapRun=+e.target.value;scheduleMap()});
 document.querySelectorAll('[data-region]').forEach(b=>b.addEventListener('click',()=>{stopPlay();mapRegion=b.dataset.region;mapZoom=1;mapCenter=null;mapPoint=null;mapPointName='';renderMap()}));
-el('map-time').addEventListener('input',e=>{mapHour=+e.target.value;scheduleMap()});
-el('map-play').addEventListener('click',()=>{if(mapTimer!==null){stopPlay();return}el('map-play').textContent='Ⅱ';el('map-play').setAttribute('aria-label','Wiedergabe pausieren');mapTimer=setInterval(()=>{const m=mapModels[mapModel];mapHour=mapHour+m.step>m.max?minHour():mapHour+m.step;el('map-time').value=mapHour;scheduleMap()},480)});
+document.querySelectorAll('[data-map-source]').forEach(b=>b.addEventListener('click',()=>setMapSource(b.dataset.mapSource)));
+el('map-live-layer').addEventListener('change',e=>{stopPlay();liveLayer=e.target.value;scheduleMap()});
+el('map-live-scenario').addEventListener('change',e=>{stopPlay();liveScenario=e.target.value;scheduleMap()});
+el('map-live-lightning').addEventListener('change',e=>{liveLightning=e.target.checked;scheduleMap()});
+el('map-time').addEventListener('input',e=>{if(mapSource==='live')liveMinute=+e.target.value;else mapHour=+e.target.value;scheduleMap()});
+el('map-play').addEventListener('click',()=>{if(mapTimer!==null){stopPlay();return}el('map-play').textContent='Ⅱ';el('map-play').setAttribute('aria-label','Wiedergabe pausieren');mapTimer=setInterval(()=>{if(mapSource==='live'){liveMinute=liveMinute>=0?-120:liveMinute+5;el('map-time').value=liveMinute}else{const m=mapModels[mapModel];mapHour=mapHour+m.step>m.max?minHour():mapHour+m.step;el('map-time').value=mapHour}scheduleMap()},480)});
 const mapPointers=new Map();
 let pointerMoved=false;
 function centerView(lon,lat){
