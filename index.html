@@ -68,8 +68,9 @@
         <div id="map-settings">
         <label class="map-select" style="margin-bottom:12px"><span>Grundkarte</span><select id="map-terrain-mode" aria-label="Grundkarte"><option value="weather-relief" selected>Wetter + topografisches Relief</option><option value="topo">Topografische Karte</option><option value="weather">Nur Wetterfarben</option></select></label>
         <div class="map-toolbar" id="map-weather-controls">
+          <label class="map-select"><span>Datenmodus</span><select id="map-data-mode"><option value="real">Echte Modelldaten</option><option value="demo">Demo / Testdaten</option></select></label><button class="map-expand" id="map-data-refresh" type="button">Modelllauf aktualisieren ↻</button>
           <label class="map-select"><span>Wettermodell</span><select id="map-model" aria-label="Wettermodell"></select></label>
-          <label class="map-select"><span>Modelllauf (Demo)</span><select id="map-run" aria-label="Modelllauf"><option value="0">15.11. · 00 UTC</option><option value="6">15.11. · 06 UTC</option><option value="12" selected>15.11. · 12 UTC</option></select></label>
+          <label class="map-select"><span id="map-run-label">Modelllauf</span><select id="map-run" aria-label="Modelllauf"><option value="0">15.11. · 00 UTC</option><option value="6">15.11. · 06 UTC</option><option value="12" selected>15.11. · 12 UTC</option></select></label>
           <label class="map-select"><span>Parameter</span><select id="map-parameter" aria-label="Kartenparameter"></select></label>
         </div>
         <div id="map-live-controls" hidden>
@@ -87,7 +88,7 @@
         <div class="map-display-options"><label><input id="map-show-districts" type="checkbox" checked> Kreise / Gemeinden</label><label><input id="map-show-places" type="checkbox" checked> Orte</label><label><input id="map-show-roads" type="checkbox" checked> Straßen</label><label><input id="map-show-terrain" type="checkbox" checked> Gebirge / Gipfel</label><label><input id="map-show-water" type="checkbox" checked> Gewässer</label></div>
         </div>
         <div class="map-temperature-days" id="map-temperature-days" aria-label="Zeitraum der Wetterkarte" hidden><button id="map-radar-nowcast" aria-pressed="true" hidden>Kurzfrist<br>90 Min.</button><button data-temperature-day="0" aria-pressed="true" class="active">Heute</button><button data-temperature-day="1" aria-pressed="false">Morgen</button><button data-temperature-day="2" aria-pressed="false">Übermorgen</button></div>
-        <div class="map-main"><canvas id="model-canvas" width="640" height="760" aria-label="Farbige Wetterkarte mit Ländergrenzen"></canvas><div class="map-overlay"><span id="map-overlay-model">ICON-D2</span><span>DEMO</span></div><div class="map-zoom"><button id="map-zoom-plus" aria-label="Hineinzoomen">+</button><span class="zoom-label" id="map-zoom-level">1.0×</span><button id="map-zoom-minus" aria-label="Herauszoomen">−</button><button id="map-zoom-reset" aria-label="Karte zurücksetzen">↺</button></div></div>
+        <div class="map-main"><canvas id="model-canvas" width="640" height="760" aria-label="Farbige Wetterkarte mit Ländergrenzen"></canvas><div class="map-overlay"><span id="map-overlay-model">ICON-D2</span><span id="map-overlay-data">DEMO</span></div><div class="map-zoom"><button id="map-zoom-plus" aria-label="Hineinzoomen">+</button><span class="zoom-label" id="map-zoom-level">1.0×</span><button id="map-zoom-minus" aria-label="Herauszoomen">−</button><button id="map-zoom-reset" aria-label="Karte zurücksetzen">↺</button></div></div>
         <div id="map-info-panel"><div class="map-info-head"><h2>Karteninformationen</h2><button id="map-info-close" aria-label="Informationen schließen">×</button></div><p id="map-info-summary" class="map-info-summary"></p>
         <div class="map-hint" id="map-gesture-hint">Ziehen zum Verschieben · Zwei Finger zum Zoomen · Antippen zum Ablesen eines Modellrasterwerts</div>
         <div class="map-hint" style="display:flex;flex-wrap:wrap;gap:10px"><span><span style="display:inline-block;width:16px;border-top:3px solid #eee;vertical-align:middle;margin-right:4px"></span>Staatsgrenze</span><span><span style="display:inline-block;width:16px;border-top:2px solid #ddd;vertical-align:middle;margin-right:4px"></span>Bundesland</span><span><span style="display:inline-block;width:16px;border-top:1px solid #ccc;vertical-align:middle;margin-right:4px"></span>Kreis / Gemeinde</span></div>
@@ -97,7 +98,7 @@
         <div class="map-legend"><div class="legend-head"><span id="legend-name"></span><span id="legend-unit"></span></div><div class="legend-strip" id="legend-strip"></div><div class="legend-ticks" id="legend-ticks"></div><div class="radar-type-legend" id="radar-type-legend" hidden></div></div>
         <div class="live-lightning-note" id="live-lightning-note" hidden><span><i style="background:#ffec55"></i>0–5 min</span><span><i style="background:#ffaa3b"></i>5–15 min</span><span><i style="background:#e97143"></i>15–30 min</span></div>
         <p class="map-caption">Relief: <a href="https://www.ncei.noaa.gov/products/etopo-global-relief-model" target="_blank" rel="noopener">NOAA ETOPO1</a> (Offline-Raster, 20′; resampled via <a href="https://github.com/linad3d/contourlines" target="_blank" rel="noopener">Contourlines</a>); <a href="https://registry.opendata.aws/terrain-tiles/" target="_blank" rel="noopener">Mapzen/Tilezen Terrain Tiles</a>, <a href="https://github.com/tilezen/joerd/blob/master/docs/attribution.md" target="_blank" rel="noopener">Höhendaten-Quellen und Lizenzen</a>. Europe terrain data produced using Copernicus data and information funded by the European Union – EU-DEM layers; © offene Daten Österreichs – Digitales Geländemodell (DGM) Österreich; © Kartverket; UK terrain data © Environment Agency copyright and/or database right 2015; ETOPO1: NOAA; GMTED2010 and SRTM courtesy of USGS. Relief visuell überhöht, Höhenwerte unverändert.</p>
-        <p class="map-caption">Geografie: <a href="https://www.naturalearthdata.com/" target="_blank" rel="noopener">Natural Earth</a> (europäische Staatsgrenzen 1:50 Mio., Orte, Gebirgsnamen, Gipfel und Gewässer, generalisiert); © GeoBasis-DE / <a href="https://www.bkg.bund.de" target="_blank" rel="noopener">BKG</a> 2019, VG250 (31.12.2018, Geometrie vereinfacht, Staatsgrenze aus Bundesländern abgeleitet), <a href="https://www.govdata.de/dl-de/by-2-0" target="_blank" rel="noopener">dl-de/by-2-0</a>. Orte: <a href="https://www.destatis.de/DE/Themen/Gesellschaft-Umwelt/Bevoelkerung/Regionales/Gemeindeverzeichnis/_inhalt.html" target="_blank" rel="noopener">Statistisches Bundesamt (Destatis)</a>, Gemeindeverzeichnis, verändert/gerundet. Die Wetterfelder und Raster sind vollständig simuliert.</p>
+        <p class="map-caption">Geografie: <a href="https://www.naturalearthdata.com/" target="_blank" rel="noopener">Natural Earth</a> (europäische Staatsgrenzen 1:50 Mio., Orte, Gebirgsnamen, Gipfel und Gewässer, generalisiert); © GeoBasis-DE / <a href="https://www.bkg.bund.de" target="_blank" rel="noopener">BKG</a> 2019, VG250 (31.12.2018, Geometrie vereinfacht, Staatsgrenze aus Bundesländern abgeleitet), <a href="https://www.govdata.de/dl-de/by-2-0" target="_blank" rel="noopener">dl-de/by-2-0</a>. Orte: <a href="https://www.destatis.de/DE/Themen/Gesellschaft-Umwelt/Bevoelkerung/Regionales/Gemeindeverzeichnis/_inhalt.html" target="_blank" rel="noopener">Statistisches Bundesamt (Destatis)</a>, Gemeindeverzeichnis, verändert/gerundet. Wetterfelder im Demo-Modus sind simuliert. Realdaten: Quelle Deutscher Wetterdienst; Rasterdaten räumlich abgetastet und bildlich wiedergegeben.</p>
         </div>
         <div class="map-sample" id="map-sample"><span>Tippe auf die Karte, um einen Beispielwert abzulesen.</span></div>
         <div class="map-nowcast-key" id="map-nowcast-key" hidden><span>−120 Min.</span><button class="now-anchor" id="map-nowcast-now" aria-label="Zur aktuellen Radarzeit zurückspringen" style="background:none;border:0;padding:0;font:inherit;color:var(--text);text-decoration:underline">Jetzt</button><button class="forecast-end" id="map-nowcast-forward" aria-label="90 Minuten in die Radarprognose springen" style="background:none;border:0;padding:0;font:inherit;color:#ffc96c;text-decoration:underline">+90 Min. · Prognose</button></div>
@@ -216,7 +217,7 @@ function dayRow(d,i){
  const warningNote=i===1?'<div class="day-warning">'+ui('alert',17)+'<span>Glätte · 05–09 Uhr und 17–20 Uhr<br>Besonders auf Nebenstrecken und Brücken.</span></div>':'';
  return '<button class="day" data-day="'+i+'" aria-expanded="'+(openDay===i)+'"><div><div class="dayname">'+d[0]+warning+'</div><div class="daydate">'+d[1]+'</div></div>'+weather(d[4],d[5])+'<div class="tempgroup"><span class="low">'+degrees(d[2])+'</span><div class="range"><div class="range-fill" style="left:'+left+'%;width:'+width+'%"></div></div><span class="high">'+degrees(d[3])+'</span></div>'+ui('chevron',18,'chev')+'</button>'+(openDay===i?'<div class="day-open"><p class="day-summary">'+d[5]+'</p>'+warningNote+'<div class="period-grid">'+d[6].map((p,j)=>'<div class="period"><span>'+p[0]+'</span>'+weather(p[2])+'<b>'+degrees(p[1])+'</b><span class="rain">'+p[3]+' %</span><span class="rain">'+fmt(extra.prec[j])+' mm</span>'+((i===1&&(j===0||j===2))?'<span class="period-risk">Glätte</span>':'')+'</div>').join('')+'</div><p class="section-label">Tageswerte</p><div class="day-values">'+daysValues.map(parameterValue).join('')+'</div></div>':'')
 }
-function setPage(page){if(page!=='map')stopPlay();activePage=page;document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active',p.id==='page-'+page));document.querySelectorAll('[data-page]').forEach(b=>{b.classList.toggle('active',b.dataset.page===page);if(b.dataset.page===page)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});window.scrollTo(0,0);if(page==='map')scheduleMap()}
+function setPage(page){if(page!=='map')stopPlay();activePage=page;document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active',p.id==='page-'+page));document.querySelectorAll('[data-page]').forEach(b=>{b.classList.toggle('active',b.dataset.page===page);if(b.dataset.page===page)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});window.scrollTo(0,0);if(page==='map'){scheduleMap();if(mapSource==='model'&&modelDataMode==='real')fetchRealModel(mapModel)}}
 const nav=[['weather','Wetter','weather'],['map','Karte','map'],['warnings','Warnungen','alert'],['expert','Experten','chart']];
 el('navigation').innerHTML=nav.map(([id,label,icon])=>'<button data-page="'+id+'" class="'+(id==='weather'?'active':'')+'" '+(id==='weather'?'aria-current="page"':'')+'>'+ui(icon,24)+label+'</button>').join('');
 document.querySelectorAll('[data-page]').forEach(b=>b.addEventListener('click',()=>setPage(b.dataset.page)));
@@ -963,7 +964,7 @@ function advanceLiveTime(){
 function setMapSource(source){
  stopPlay();endMapGesture();mapSource=source;
  if(terrainMode==='topo'){terrainMode='weather-relief';el('map-terrain-mode').value=terrainMode}
- renderMap();
+ renderMap();if(source==='model'&&modelDataMode==='real')fetchRealModel(mapModel);
 }
 
 // Local preview cards and a full-screen presentation of the SAME interactive
@@ -1044,7 +1045,7 @@ function openHomeMap(id){
 }
 function updateFullMapLabels(){
  el('map-full-title').textContent=el('map-layer-title').textContent;
- el('map-full-subtitle').textContent=terrainMode==='topo'?'Topografie':mapSource==='live'?timeText(liveTime())+(liveIsFuture()?' · Prognose (Demo)':' · DEMO'):mapModel+' · '+timeText(new Date(Date.UTC(2026,10,15,mapRun+mapHour)))+' · DEMO';
+ const valid=modelValidDate();el('map-full-subtitle').textContent=terrainMode==='topo'?'Topografie':mapSource==='live'?timeText(liveTime())+(liveIsFuture()?' · Prognose (Demo)':' · DEMO'):mapModel+' · '+(valid?timeText(valid):'Keine Daten')+' · '+(modelDataMode==='demo'?'DEMO':realData()?'DWD':'AUSSTEHEND');
  el('map-full-layer-tabs').hidden=mapSource!=='live'||terrainMode==='topo';
  document.querySelectorAll('[data-full-layer]').forEach(b=>{const on=b.dataset.fullLayer===liveLayer;b.classList.toggle('active',on);b.setAttribute('aria-pressed',String(on))});
  el('map-info-summary').textContent=terrainMode==='topo'?'Geländehöhen in Metern.':mapSource==='live'?el('map-layer-title').textContent+(liveIsFuture()?' · Simulierte Prognose, keine Messdaten. ':' · Simulierte Beobachtungen, keine Messdaten. ')+el('map-interval').textContent+(liveLayer==='wind'?' Pfeile zeigen die Strömungsrichtung.':''):el('map-layer-title').textContent+' · '+mapModel+' · '+el('map-valid').textContent+' · '+el('map-interval').textContent;
@@ -1288,11 +1289,97 @@ const infoPages={
  imprint:['Impressum','<p class="legal-notice">Entwicklungsstand · Noch kein vollständiges Impressum.</p><h3>Anbieter</h3><p>Verantwortlicher Anbieter, ladungsfähige Anschrift und Kontaktdaten werden vor Veröffentlichung ergänzt.</p><p>Weitere erforderliche Anbieterangaben werden nach Festlegung der Betriebsform geprüft. <a href="https://www.gesetze-im-internet.de/ddg/__5.html" target="_blank" rel="noopener noreferrer">Informationen zu § 5 DDG</a></p>'],
  contact:['Kontakt & Support','<p>Hier werden später die Kontaktmöglichkeiten für Fragen, Fehlerberichte, Rückmeldungen und Datenschutzanfragen hinterlegt.</p><p class="legal-notice">Eine Support-E-Mail-Adresse und ein Kontaktformular sind in dieser Demo noch nicht eingerichtet.</p>'],
  privacy:['Datenschutz','<p class="legal-notice">Vorläufige technische Hinweise zur Demo · keine abschließende Datenschutzerklärung.</p><h3>Lokale Einstellungen</h3><p>Design, Favoriten, manuell gewählter Ort und Warnpräferenzen werden lokal im Browser gespeichert. Es gibt derzeit kein Nutzerkonto.</p><h3>Standort</h3><p>Standortzugriff erfolgt nur nach deiner Auswahl und Browserfreigabe. Die Koordinaten werden lokal einem Ort zugeordnet; der genaue GPS-Wert wird nicht als Einstellung gespeichert. Beim Öffnen von Karten können externe Kartenkacheln für die gewählte Region geladen werden.</p><h3>Externe Dienste</h3><p>Die Online-Ortssuche sendet den Suchbegriff an Photon. Karten- und Höhendaten können von externen Kartenservern geladen werden. Die vollständigen Angaben zu Anbietern, Datenverarbeitung und Betroffenenrechten folgen vor Veröffentlichung.</p>'],
- terms:['AGB & Nutzungsbedingungen','<p class="legal-notice">Platzhalter · Die verbindlichen Nutzungsbedingungen werden vor Veröffentlichung erstellt und geprüft.</p><h3>Designprototyp</h3><p>Alle Wetterwerte, Modellfelder und Warnungen sind simuliert. Diese Demo ist keine Wettervorhersage und kein amtlicher Warnservice. Für sicherheitsrelevante Entscheidungen bitte amtliche Informationen nutzen.</p><h3>Geplante Anwendung</h3><p>Funktionen, Verfügbarkeit der Daten, Bedingungen der Nutzung und gegebenenfalls weitere Vertragsinformationen werden für die veröffentlichte Version festgelegt.</p>'],
- sources:['Datenquellen & Wettermodelle','<p>Offizielle Anbieter und geplante Quellen. Die Modellwerte der App sind derzeit ausschließlich Demo-Daten.</p><div class="source-links"><a href="https://opendata.dwd.de/weather/nwp/icon-d2/" target="_blank" rel="noopener noreferrer"><strong>ICON-D2</strong><small>Deutscher Wetterdienst · Open Data</small></a><a href="https://opendata.dwd.de/weather/nwp/icon-eu/" target="_blank" rel="noopener noreferrer"><strong>ICON-EU</strong><small>Deutscher Wetterdienst · Open Data</small></a><a href="https://www.ecmwf.int/en/forecasts/datasets/open-data" target="_blank" rel="noopener noreferrer"><strong>IFS</strong><small>ECMWF · Open Data</small></a><a href="https://www.nco.ncep.noaa.gov/pmb/products/gfs/" target="_blank" rel="noopener noreferrer"><strong>GFS</strong><small>NOAA / NCEP</small></a><a href="https://kachelmannwetter.com/de/modellkarten/" target="_blank" rel="noopener noreferrer"><strong>Super HD / Swiss HD</strong><small>Kachelmannwetter · mögliche spätere Integration, Rechte noch zu klären</small></a><a href="https://opendata.dwd.de/weather/radar/" target="_blank" rel="noopener noreferrer"><strong>Radar</strong><small>DWD Open Data · geplante Anbindung</small></a></div><h3>Geografie</h3><p><a href="https://www.destatis.de/DE/Themen/Gesellschaft-Umwelt/Bevoelkerung/Regionales/Gemeindeverzeichnis/_inhalt.html" target="_blank" rel="noopener noreferrer">Destatis</a> · <a href="https://www.bkg.bund.de" target="_blank" rel="noopener noreferrer">BKG / GeoBasis-DE</a> · <a href="https://www.naturalearthdata.com/" target="_blank" rel="noopener noreferrer">Natural Earth</a> · <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> · <a href="https://openfreemap.org/" target="_blank" rel="noopener noreferrer">OpenFreeMap</a> · <a href="https://openmaptiles.org/" target="_blank" rel="noopener noreferrer">OpenMapTiles</a> · <a href="https://photon.komoot.io/" target="_blank" rel="noopener noreferrer">Photon</a> · <a href="https://www.ncei.noaa.gov/products/etopo-global-relief-model" target="_blank" rel="noopener noreferrer">NOAA ETOPO</a> · <a href="https://registry.opendata.aws/terrain-tiles/" target="_blank" rel="noopener noreferrer">Terrain Tiles</a></p><p>Konkrete Quellen- und Lizenzhinweise sind zusätzlich in den Karteninformationen verfügbar. Vor Anbindung jedes Modells werden die Nutzungsrechte geprüft.</p>'],
+ terms:['AGB & Nutzungsbedingungen','<p class="legal-notice">Platzhalter · Die verbindlichen Nutzungsbedingungen werden vor Veröffentlichung erstellt und geprüft.</p><h3>Designprototyp</h3><p>Wetterwerte und Warnungen der Startseite sowie ausdrücklich als Demo markierte Daten sind simuliert. ICON-Realdaten sind separat als DWD gekennzeichnet. Die Anwendung ist kein amtlicher Warnservice. Für sicherheitsrelevante Entscheidungen bitte amtliche Informationen nutzen.</p><h3>Geplante Anwendung</h3><p>Funktionen, Verfügbarkeit der Daten, Bedingungen der Nutzung und gegebenenfalls weitere Vertragsinformationen werden für die veröffentlichte Version festgelegt.</p>'],
+ sources:['Datenquellen & Wettermodelle','<p>Offizielle Anbieter und geplante Quellen. Echte ICON-Felder werden aus DWD Open Data erzeugt; andere Modellwerte sowie aktuelle Wetter- und Warnansichten bleiben vorläufig Demo.</p><div class="source-links"><a href="https://opendata.dwd.de/weather/nwp/icon-d2/" target="_blank" rel="noopener noreferrer"><strong>ICON-D2</strong><small>Deutscher Wetterdienst · Open Data</small></a><a href="https://opendata.dwd.de/weather/nwp/icon-eu/" target="_blank" rel="noopener noreferrer"><strong>ICON-EU</strong><small>Deutscher Wetterdienst · Open Data</small></a><a href="https://www.ecmwf.int/en/forecasts/datasets/open-data" target="_blank" rel="noopener noreferrer"><strong>IFS</strong><small>ECMWF · Open Data</small></a><a href="https://www.nco.ncep.noaa.gov/pmb/products/gfs/" target="_blank" rel="noopener noreferrer"><strong>GFS</strong><small>NOAA / NCEP</small></a><a href="https://kachelmannwetter.com/de/modellkarten/" target="_blank" rel="noopener noreferrer"><strong>Super HD / Swiss HD</strong><small>Kachelmannwetter · mögliche spätere Integration, Rechte noch zu klären</small></a><a href="https://opendata.dwd.de/weather/radar/" target="_blank" rel="noopener noreferrer"><strong>Radar</strong><small>DWD Open Data · geplante Anbindung</small></a></div><h3>Geografie</h3><p><a href="https://www.destatis.de/DE/Themen/Gesellschaft-Umwelt/Bevoelkerung/Regionales/Gemeindeverzeichnis/_inhalt.html" target="_blank" rel="noopener noreferrer">Destatis</a> · <a href="https://www.bkg.bund.de" target="_blank" rel="noopener noreferrer">BKG / GeoBasis-DE</a> · <a href="https://www.naturalearthdata.com/" target="_blank" rel="noopener noreferrer">Natural Earth</a> · <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> · <a href="https://openfreemap.org/" target="_blank" rel="noopener noreferrer">OpenFreeMap</a> · <a href="https://openmaptiles.org/" target="_blank" rel="noopener noreferrer">OpenMapTiles</a> · <a href="https://photon.komoot.io/" target="_blank" rel="noopener noreferrer">Photon</a> · <a href="https://www.ncei.noaa.gov/products/etopo-global-relief-model" target="_blank" rel="noopener noreferrer">NOAA ETOPO</a> · <a href="https://registry.opendata.aws/terrain-tiles/" target="_blank" rel="noopener noreferrer">Terrain Tiles</a></p><p>Konkrete Quellen- und Lizenzhinweise sind zusätzlich in den Karteninformationen verfügbar. Vor Anbindung jedes Modells werden die Nutzungsrechte geprüft.</p>'],
  about:['Über die App','<p>Wetter-App · Designprototyp</p><p>Lokales Wetter, 7-Tage-Prognose, Karten, Warnungen und meteorologische Spezialparameter in einer Oberfläche. Die meteorologischen Daten und Warnungen sind aktuell simuliert.</p>']
 };
 function openInfo(key){const page=infoPages[key];if(!page)return;el('info-title').textContent=page[0];el('info-content').innerHTML=page[1];setPage('info')}
+
+// Only verified, explicitly identified data can enter the real model mode.
+const realModelFiles={'ICON-D2':'icon-d2','ICON-EU':'icon-eu'};
+const realModelParams=new Set(['temp2','dew','wind','slp','cloud','rainTotal','rainrate','rain3','rain6','rain12','rain24','rain48','rain72']);
+let modelDataMode='demo',realModelRevision=0;
+const realModelCache=new Map(),realModelRequests=new Map(),realDecoded=new Map(),realModelErrors=new Map();
+function realData(){return modelDataMode==='real'?realModelCache.get(mapModel):null}
+function realModelSupported(p,step,max){return realModelParams.has(p.id)&&p.interval<=max&&(!p.interval||p.interval%step===0)}
+function effectiveModel(){
+ const base=mapModels[mapModel],d=realData();
+ if(d)return {...base,step:d.hours[1]-d.hours[0],max:d.hours.at(-1),grid:d.grid.step};
+ if(modelDataMode==='real'&&realModelFiles[mapModel])return {...base,step:mapModel==='ICON-D2'?3:6,max:mapModel==='ICON-D2'?48:120};
+ return base;
+}
+function modelRunDate(){const d=realData();return modelDataMode==='real'?(d?new Date(d.run):null):new Date(Date.UTC(2026,10,15,mapRun))}
+function modelValidDate(){const d=modelRunDate();return d?new Date(d.getTime()+mapHour*3600000):null}
+function validateRealData(d,model){
+ if(!d||d.schema!==1||d.model!==model||!Number.isFinite(Date.parse(d.run))||!Number.isFinite(Date.parse(d.generated)))throw Error('Ungültiger Modelllauf');
+ const g=d.grid;if(!g||!Number.isFinite(g.west)||!Number.isFinite(g.south)||!(g.step>0)||g.scale!==.1||g.missing!==-32768||!Number.isInteger(g.nx)||!Number.isInteger(g.ny)||g.nx<2||g.ny<2||g.nx*g.ny>500000)throw Error('Ungültiges Modellraster');
+ if(!Array.isArray(d.hours)||d.hours.length<2||d.hours[0]!==0||!d.hours.every((h,i)=>Number.isInteger(h)&&h===i*d.hours[1])||d.hours[1]<=0)throw Error('Ungültige Prognoseschritte');
+ const encodedLength=4*Math.ceil(g.nx*g.ny*2/3);
+ for(const h of d.hours)for(const p of ['temp2','dew','wind','slp','cloud','rainTotal'])if(typeof d.frames?.[h]?.[p]!=='string'||d.frames[h][p].length!==encodedLength)throw Error('Unvollständiges Modellfeld');
+ return d;
+}
+function decodeRealField(d,h,id){
+ const k=d.model+'/'+d.run+'/'+h+'/'+id;if(realDecoded.has(k))return realDecoded.get(k);
+ const packed=d.frames?.[h]?.[id];if(!packed)return null;
+ try{
+  const binary=atob(packed),g=d.grid;if(binary.length!==g.nx*g.ny*2)return null;
+  const values=new Int16Array(binary.length/2);
+  for(let i=0;i<values.length;i++)values[i]=(binary.charCodeAt(i*2)|(binary.charCodeAt(i*2+1)<<8))<<16>>16;
+  realDecoded.set(k,values);if(realDecoded.size>48)realDecoded.delete(realDecoded.keys().next().value);return values;
+ }catch{return null}
+}
+function realModelValue(d,p,lon,lat,h){
+ if(!d)return NaN;const g=d.grid,x=Math.round((lon-g.west)/g.step),y=Math.round((lat-g.south)/g.step);
+ if(x<0||x>=g.nx||y<0||y>=g.ny)return NaN;
+ const n=y*g.nx+x;
+ const read=(hour,id)=>{const v=decodeRealField(d,hour,id)?.[n];return v===undefined||v===g.missing?NaN:v*g.scale};
+ if(p.id==='rainrate'||(/^rain\d+$/.test(p.id))){
+  const interval=p.id==='rainrate'?d.hours[1]-d.hours[0]:p.interval;
+  if(h<interval)return NaN;const amount=read(h,'rainTotal')-read(h-interval,'rainTotal');
+  if(amount<-.15)return NaN;return Math.max(0,amount)/(p.id==='rainrate'?interval:1);
+ }
+ return read(h,p.id);
+}
+async function fetchRealModel(model,force=false){
+ const file=realModelFiles[model];if(!file)return;
+ if(realModelRequests.has(model))return realModelRequests.get(model);
+ if(realModelCache.has(model)&&!force)return;
+ realModelErrors.delete(model);
+ const task=(async()=>{
+  let failure;
+  for(const url of ['https://raw.githubusercontent.com/colinheinz07-spec/Wetter-App/main/data/'+file+'.json','data/'+file+'.json']){
+   try{
+    const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),15000);let response;
+    try{response=await fetch(url,{cache:'no-store',credentials:'omit',signal:controller.signal});if(!response.ok)throw Error('HTTP '+response.status);
+    const d=validateRealData(await response.json(),model);
+    const previous=realModelCache.get(model);
+    if(!previous||Date.parse(d.run)>=Date.parse(previous.run)){realModelCache.set(model,d);realDecoded.clear();realModelRevision++}
+    return;}finally{clearTimeout(timeout)}
+   }catch(e){failure=e}
+  }
+  realModelErrors.set(model,String(failure?.message||'Nicht erreichbar'));
+ })();
+ realModelRequests.set(model,task);
+ try{await task}finally{realModelRequests.delete(model);if(mapSource==='model'&&mapModel===model&&modelDataMode==='real')renderMap()}
+}
+function modelStatus(){
+ if(modelDataMode!=='real')return {label:'Testdaten · keine Vorhersage',detail:'Modellkarte · synthetische Testfelder'};
+ const d=realData();
+ if(d){
+  const old=Date.now()-Date.parse(d.run)>12*3600000;
+  return {label:old?'Archivierter Modelllauf':'DWD · Realdaten',detail:'Quelle: Deutscher Wetterdienst · Raster reduziert ('+d.grid.step.toLocaleString('de-DE')+'°)'+(old?' · nicht aktuell':'')};
+ }
+ if(!realModelFiles[mapModel])return {label:'Noch nicht angebunden',detail:'Für dieses Modell stehen noch keine echten Daten bereit.'};
+ return {label:realModelRequests.has(mapModel)?'Modell wird geladen …':'Keine Realdaten verfügbar',detail:'DWD-Modelllauf noch nicht verfügbar. Aktualisieren oder ausdrücklich Demo wählen.'};
+}
+function selectModelDataMode(mode){
+ stopPlay();modelDataMode=mode;realModelRevision++;renderMap();if(mode==='real')fetchRealModel(mapModel);
+}
+function initModelData(){
+ el('map-data-mode').addEventListener('change',e=>selectModelDataMode(e.target.value));
+ el('map-data-refresh').addEventListener('click',()=>{if(modelDataMode==='real')fetchRealModel(mapModel,true)});
+ modelDataMode='real';el('map-data-mode').value='real';renderMap();
+}
 
 
 // Geographic borders: Natural Earth, 1:110m Admin 0 (public domain).
@@ -1445,12 +1532,13 @@ const citiesEU=[['London',-.127,51.507],['Paris',2.35,48.86],['Berlin',13.405,52
 // and zoom. This mock adapter will be replaced by actual native model grids.
 let gridKey='',gridCache=new Map();
 function gridSample(p,lon,lat){
+ if(modelDataMode==='real'){const d=realData(),value=realModelValue(d,p,lon,lat,mapHour);return {value,color:Number.isFinite(value)?colorAt(p,value):[95,110,125]}}
  const key=[mapModel,mapRun,mapHour,p.id].join('/');if(gridKey!==key){gridKey=key;gridCache.clear()}
  const step=mapModels[mapModel].grid,ix=Math.round(lon/step),iy=Math.round(lat/step),cell=ix+':'+iy;
  if(!gridCache.has(cell)){const value=demoValue(p.mode,ix*step,iy*step);gridCache.set(cell,{value,color:Number.isFinite(value)?colorAt(p,value):[95,110,125]})}
  return gridCache.get(cell);
 }
-function mapContentKey(){return [mapRegion,mapSource,mapModel,mapRun,mapHour,mapLayer,liveLayer,liveScenario,liveDisplayMinute(),liveLightning,liveSymbols,terrainMode,showDistricts,showPlaces,showRoads,showTerrain,showWater,mapPoint?.join(',')].join('/')}
+function mapContentKey(){return [mapRegion,mapSource,mapModel,mapRun,mapHour,mapLayer,modelDataMode,realModelRevision,liveLayer,liveScenario,liveDisplayMinute(),liveLightning,liveSymbols,terrainMode,showDistricts,showPlaces,showRoads,showTerrain,showWater,mapPoint?.join(',')].join('/')}
 function drawMap(fast=false){
  const p=fields[mapLayer],b=bounds();mapView=b;
  if(mapCanvas.width!==b.w)mapCanvas.width=b.w;if(mapCanvas.height!==b.h)mapCanvas.height=b.h;const ctx=mapCanvas.getContext('2d');
@@ -1504,24 +1592,26 @@ function renderSample(){
  }
  const [lon,lat]=mapPoint,value=terrainMode==='topo'?terrainHeight(lon,lat):gridSample(p,lon,lat).value;
  const v=value.toLocaleString('de-DE',{maximumFractionDigits:p.id==='visibility'?2:1});
- el('map-sample').innerHTML='<div>'+(terrainMode==='topo'?'Geländehöhe (ca.)':p.label)+'<br><span>'+lat.toFixed(3)+'° N · '+Math.abs(lon).toFixed(3)+'° '+(lon<0?'W':'O')+'</span></div><b>'+(terrainMode==='topo'?Math.round(value).toLocaleString('de-DE')+' m':v+' '+p.unit)+'</b>';
+ el('map-sample').innerHTML='<div>'+(terrainMode==='topo'?'Geländehöhe (ca.)':p.label)+'<br><span>'+lat.toFixed(3)+'° N · '+Math.abs(lon).toFixed(3)+'° '+(lon<0?'W':'O')+'</span></div><b>'+(!Number.isFinite(value)?'Keine Daten':terrainMode==='topo'?Math.round(value).toLocaleString('de-DE')+' m':v+' '+p.unit)+'</b>';
  const district=districtAt(lon,lat),name=mapPointName||(district?district.type+' '+district.name:'');
  if(name){const label=document.createElement('span');label.textContent=name+' · ';el('map-sample').firstElementChild.prepend(label)}
 }
 const timeText=d=>d.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',timeZone:'UTC'})+' · '+d.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit',timeZone:'UTC'})+' UTC';
-function minHour(){const step=mapModels[mapModel].step;return Math.ceil(fields[mapLayer].interval/step)*step}
+function minHour(){const step=effectiveModel().step;return modelDataMode==='real'&&mapLayer==='rainrate'?step:Math.ceil(fields[mapLayer].interval/step)*step}
 function mapLabels(){
- const p=fields[mapLayer];el('map-layer-title').textContent=terrainMode==='topo'?'Topografie · Geländehöhe':p.label;el('map-model-badge').textContent=terrainMode==='topo'?'Relief':mapModel;el('map-overlay-model').textContent=terrainMode==='topo'?'TOPO':mapModel;
+ const p=fields[mapLayer],status=modelStatus();el('map-layer-title').textContent=terrainMode==='topo'?'Topografie · Geländehöhe':p.label;el('map-model-badge').textContent=terrainMode==='topo'?'Relief':mapModel;el('map-overlay-model').textContent=terrainMode==='topo'?'TOPO':mapModel;
+ el('map-overlay-data').textContent=terrainMode==='topo'?'GELÄNDE':mapSource==='live'||modelDataMode==='demo'?'DEMO':realData()&&realModelSupported(p,effectiveModel().step,effectiveModel().max)?'DWD':'KEINE DATEN';
  el('map-weather-controls').hidden=terrainMode==='topo';el('map-time-controls').hidden=terrainMode==='topo';el('map-run-info').hidden=terrainMode==='topo';
  el('map-live-controls').hidden=mapSource!=='live'||terrainMode==='topo';
- el('map-data-notice').textContent=mapSource==='live'?'Demo · keine Messdaten':'Testdaten · keine Vorhersage';
+ el('map-data-notice').textContent=mapSource==='live'?'Demo · keine Messdaten':status.label;
  document.querySelectorAll('[data-map-source]').forEach(b=>{const on=b.dataset.mapSource===mapSource;b.classList.toggle('active',on);b.setAttribute('aria-pressed',String(on))});
- el('map-view-description').textContent=terrainMode==='topo'?'Echtes Geländemodell · Höhen in Metern':'Modellkarte · synthetische Testfelder';
+ el('map-view-description').textContent=terrainMode==='topo'?'Echtes Geländemodell · Höhen in Metern':status.detail;
  el('map-gesture-hint').textContent='Ziehen zum Verschieben · Zwei Finger zum Zoomen · Antippen zum Ablesen '+(terrainMode==='topo'?'der Geländehöhe':'eines Modellrasterwerts');
  el('map-time-label').textContent='+'+mapHour+' Std.';
- const date=new Date(Date.UTC(2026,10,15,mapRun+mapHour));
- el('map-valid').textContent='Gültig: '+timeText(date);
- const n=p.id==='rainTotal'?mapHour:p.interval;el('map-interval').textContent=n>0?'Summenzeitraum: '+timeText(new Date(date.getTime()-n*3600000))+' – '+timeText(date):(p.id==='rainTotal'?'Summe seit Modellstart: 0 mm':p.id==='rainrate'?'Momentane Rate (mm/h)':'');
+ const date=modelValidDate();
+ el('map-valid').textContent=date?'Gültig: '+timeText(date):'Kein Modelllauf verfügbar';
+ const n=p.id==='rainTotal'?mapHour:p.interval,available=realData()&&realModelSupported(p,effectiveModel().step,effectiveModel().max);
+ el('map-interval').textContent=modelDataMode==='real'&&!available?'Für diesen Parameter sind keine Realdaten verfügbar.':date&&n>0?'Summenzeitraum: '+timeText(new Date(date.getTime()-n*3600000))+' – '+timeText(date):(p.id==='rainTotal'?'Summe seit Modellstart: 0 mm':p.id==='rainrate'?(modelDataMode==='real'?'Mittlere Niederschlagsrate · letzte '+effectiveModel().step+' h':'Momentane Rate (mm/h)'):'');
  if(terrainMode==='topo')el('map-interval').textContent='';
  if(mapSource==='live'&&terrainMode!=='topo'){
   el('map-weather-controls').hidden=true;
@@ -1551,22 +1641,25 @@ function endMapGesture(){
  if(mapGesture){mapGesture=false;scheduleMap()}
 }
 function renderMap(){
- const list=mapOptions();if(!list.includes(mapModel))mapModel=list[0];const model=mapModels[mapModel];
+ const list=mapOptions();if(!list.includes(mapModel))mapModel=list[0];const model=effectiveModel();
  modelSelect.innerHTML=list.map(s=>'<option value="'+s+'" '+(s===mapModel?'selected':'')+'>'+s+'</option>').join('');
  if(fields[mapLayer].interval>model.max)mapLayer='rain24';
  const available=mapParameters.filter(p=>p.interval<=model.max),groups=[...new Set(available.map(p=>p.group))];
- parameterSelect.innerHTML=groups.map(g=>'<optgroup label="'+g+'">'+available.filter(p=>p.group===g).map(p=>'<option value="'+p.id+'" '+(p.id===mapLayer?'selected':'')+'>'+p.label+'</option>').join('')+'</optgroup>').join('');
+ parameterSelect.innerHTML=groups.map(g=>'<optgroup label="'+g+'">'+available.filter(p=>p.group===g).map(p=>'<option value="'+p.id+'" '+(p.id===mapLayer?'selected':'')+'>'+p.label+(modelDataMode==='real'&&(!realModelFiles[mapModel]||!realModelSupported(p,model.step,model.max))?' · keine Realdaten':'')+'</option>').join('')+'</optgroup>').join('');
+ const run=el('map-run'),date=modelRunDate();run.disabled=modelDataMode==='real';el('map-run-label').textContent=modelDataMode==='real'?'Modelllauf (DWD)':'Modelllauf (Demo)';
+ run.innerHTML=modelDataMode==='real'?'<option value="0">'+(date?timeText(date):'Noch nicht verfügbar')+'</option>':[0,6,12].map(h=>'<option value="'+h+'" '+(mapRun===h?'selected':'')+'>15.11. · '+String(h).padStart(2,'0')+' UTC</option>').join('');
+ el('map-data-mode').value=modelDataMode;el('map-data-refresh').hidden=modelDataMode!=='real';
  const time=el('map-time');if(mapSource==='live'){syncLiveTimeControls()}
  else{time.max=model.max;time.step=model.step;time.min=minHour();mapHour=clamp(Math.round(mapHour/model.step)*model.step,minHour(),model.max);time.value=mapHour;time.setAttribute('aria-label','Vorhersagezeit')}
  document.querySelectorAll('[data-region]').forEach(b=>b.classList.toggle('active',b.dataset.region===mapRegion));
  refreshMap();
 }
 function stopPlay(){if(mapTimer!==null){clearInterval(mapTimer);mapTimer=null}el('map-play').textContent='▶';el('map-play').setAttribute('aria-label',mapSource==='live'?'Radar-Zeitverlauf abspielen':'Vorhersage abspielen')}
-function openMapLayer(id,model){stopPlay();mapSource='model';if(terrainMode==='topo'){terrainMode='weather-relief';el('map-terrain-mode').value=terrainMode}if(id&&fields[id])mapLayer=id;if(model&&mapModels[model]){mapModel=model;if(model==='ICON-D2'&&mapRegion!=='Deutschland'){mapRegion='Deutschland';mapZoom=1;mapCenter=null;mapPoint=null;mapPointName=''}}renderMap();setPage('map')}
-modelSelect.addEventListener('change',()=>{stopPlay();mapModel=modelSelect.value;renderMap()});
+function openMapLayer(id,model){stopPlay();mapSource='model';if(terrainMode==='topo'){terrainMode='weather-relief';el('map-terrain-mode').value=terrainMode}if(id&&fields[id])mapLayer=id;if(model&&mapModels[model]){mapModel=model;if(model==='ICON-D2'&&mapRegion!=='Deutschland'){mapRegion='Deutschland';mapZoom=1;mapCenter=null;mapPoint=null;mapPointName=''}}renderMap();if(modelDataMode==='real')fetchRealModel(mapModel);setPage('map')}
+modelSelect.addEventListener('change',()=>{stopPlay();mapModel=modelSelect.value;renderMap();if(modelDataMode==='real')fetchRealModel(mapModel)});
 parameterSelect.addEventListener('change',()=>{stopPlay();mapLayer=parameterSelect.value;renderMap()});
 el('map-run').addEventListener('change',e=>{mapRun=+e.target.value;scheduleMap()});
-document.querySelectorAll('[data-region]').forEach(b=>b.addEventListener('click',()=>{stopPlay();mapRegion=b.dataset.region;mapZoom=1;mapCenter=null;mapPoint=null;mapPointName='';renderMap()}));
+document.querySelectorAll('[data-region]').forEach(b=>b.addEventListener('click',()=>{stopPlay();mapRegion=b.dataset.region;mapZoom=1;mapCenter=null;mapPoint=null;mapPointName='';renderMap();if(mapSource==='model'&&modelDataMode==='real')fetchRealModel(mapModel)}));
 document.querySelectorAll('[data-map-source]').forEach(b=>b.addEventListener('click',()=>setMapSource(b.dataset.mapSource)));
 el('map-live-layer').addEventListener('change',e=>selectLiveLayer(e.target.value));
 el('map-live-scenario').addEventListener('change',e=>{stopPlay();liveScenario=e.target.value;resetLiveTime();scheduleMap()});
@@ -1578,7 +1671,7 @@ el('map-live-lightning').addEventListener('change',e=>{liveLightning=e.target.ch
 el('map-live-symbols').addEventListener('change',e=>{liveSymbols=e.target.checked;scheduleMap()});
 bindFullMap();
 el('map-time').addEventListener('input',e=>{if(mapSource==='live'){if(liveHourlyMode())liveTempHour=+e.target.value;else liveMinute=+e.target.value}else mapHour=+e.target.value;scheduleMap()});
-el('map-play').addEventListener('click',()=>{if(mapTimer!==null){stopPlay();return}el('map-play').textContent='Ⅱ';el('map-play').setAttribute('aria-label','Wiedergabe pausieren');mapTimer=setInterval(()=>{if(mapSource==='live'){advanceLiveTime()}else{const m=mapModels[mapModel];mapHour=mapHour+m.step>m.max?minHour():mapHour+m.step;el('map-time').value=mapHour}scheduleMap()},480)});
+el('map-play').addEventListener('click',()=>{if(mapTimer!==null){stopPlay();return}el('map-play').textContent='Ⅱ';el('map-play').setAttribute('aria-label','Wiedergabe pausieren');mapTimer=setInterval(()=>{if(mapSource==='live'){advanceLiveTime()}else{const m=effectiveModel();mapHour=mapHour+m.step>m.max?minHour():mapHour+m.step;el('map-time').value=mapHour}scheduleMap()},480)});
 const mapPointers=new Map();
 let pointerMoved=false;
 function centerView(lon,lat){
@@ -1671,7 +1764,7 @@ function openDialog(){el('search-input').value='';renderLocations();el('location
 function closeDialog(){cancelPlaceLookup();el('location-dialog').classList.remove('open');el('search-open').focus()}
 el('pin-icon').innerHTML=ui('pin',23);el('loc-chevron').innerHTML=ui('chevron',16);el('search-open').innerHTML=ui('search',22);el('close-dialog').innerHTML=ui('close',22);el('time-icon').innerHTML=ui('clock',21);
 el('location-open').addEventListener('click',openDialog);el('search-open').addEventListener('click',openDialog);el('close-dialog').addEventListener('click',closeDialog);el('search-input').addEventListener('input',renderLocations);el('place-online-search').addEventListener('click',searchOnlinePlaces);el('search-input').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();searchOnlinePlaces()}});el('location-dialog').addEventListener('click',e=>{if(e.target===el('location-dialog'))closeDialog()});document.addEventListener('keydown',e=>{if(e.key==='Escape'&&el('location-dialog').classList.contains('open'))closeDialog()});
-initPreferences();renderWeather();renderMap();
+initPreferences();renderWeather();initModelData();
 })();
 </script>
 </body>
