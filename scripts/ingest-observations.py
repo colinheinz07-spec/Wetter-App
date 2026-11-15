@@ -1,5 +1,6 @@
 """DWD SYNOP BUFR station snapshots and RV analysis times (public Open Data)."""
 import concurrent.futures
+import base64
 import datetime as dt
 import gzip
 import io
@@ -20,6 +21,22 @@ def get(url):
 
 def links(url):
     return re.findall(r'href="([^"<>]+)"',get(url).decode('utf-8'))
+
+
+def radar_snapshot(times):
+    """Get a verified PNG for a published RV time, independent of client CORS."""
+    bounds=[2.0,45.0,18.0,57.0]
+    for time in sorted(set(times),reverse=True)[:3]:
+        if NOW-time>dt.timedelta(minutes=60):continue
+        for layer in ('dwd:RV-Produkt','dwd:Niederschlagsradar'):
+            try:
+                params=dict(service='WMS',version='1.1.1',request='GetMap',layers=layer,styles='',srs='EPSG:4326',bbox=','.join(map(str,bounds)),width=800,height=600,format='image/png',transparent='true',time=time.strftime('%Y-%m-%dT%H:%M:%SZ'),exceptions='application/vnd.ogc.se_xml')
+                image=get('https://maps.dwd.de/geoserver/dwd/wms?'+urllib.parse.urlencode(params))
+                if not image.startswith(b'\x89PNG\r\n\x1a\n') or len(image)>2_000_000:raise ValueError('WMS returned no valid PNG')
+                if int.from_bytes(image[16:20],'big')!=800 or int.from_bytes(image[20:24],'big')!=600:raise ValueError('Wrong radar image dimensions')
+                return dict(time=time.isoformat(),bounds=bounds,png=base64.b64encode(image).decode('ascii'))
+            except Exception as exc:print('RV image unavailable:',layer,time,exc,flush=True)
+    return None
 
 def read_synop(data):
     if data.startswith(b'\x1f\x8b'):data=gzip.decompress(data)
@@ -69,6 +86,8 @@ def main():
         times=[t for t in times if t<=NOW]
         if times:result['radarBase']=max(times).isoformat()
         print('RV base:',result.get('radarBase'),flush=True)
+        snapshot=radar_snapshot(times)
+        if snapshot:result['radarImage']=snapshot;print('RV image:',snapshot['time'],flush=True)
     except Exception as exc:print('RV listing unavailable:',exc,flush=True)
     try:
         names=[]
@@ -89,6 +108,12 @@ def main():
         print('Stations:',len(result['stations']),flush=True)
     except Exception as exc:print('SYNOP unavailable:',exc,flush=True)
     if not result.get('radarBase') and not result['stations']:raise RuntimeError('No current DWD data available')
-    output=Path('data/stations.json');output.parent.mkdir(exist_ok=True);output.write_text(json.dumps(result,separators=(',',':')),encoding='utf8')
+    output=Path('data/stations.json');output.parent.mkdir(exist_ok=True)
+    if output.exists() and not result.get('radarImage'):
+        try:
+            previous=json.loads(output.read_text()).get('radarImage')
+            if previous and NOW-dt.datetime.fromisoformat(previous['time'])<dt.timedelta(minutes=60):result['radarImage']=previous
+        except (ValueError,TypeError,KeyError):pass
+    output.write_text(json.dumps(result,separators=(',',':')),encoding='utf8')
 
 if __name__=='__main__':main()

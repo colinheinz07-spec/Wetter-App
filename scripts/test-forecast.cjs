@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const html = fs.readFileSync('index.html','utf8');
 const chunk = (from,to) => html.slice(html.indexOf(from),html.indexOf(to));
 const context = vm.createContext({console,Date,atob,Int16Array,Map,Set,Math,Number});
-vm.runInContext(chunk('const realModelFiles=','async function fetchRealModel') +
+vm.runInContext(chunk('const realModelFiles=','async function fetchRealModel') + chunk('const localDay=','const realPoint=')+
   chunk('const realPoint=','function frameWeather'),context);
 const d2=JSON.parse(fs.readFileSync('data/icon-d2.json','utf8'));
 const eu=JSON.parse(fs.readFileSync('data/icon-eu.json','utf8'));
@@ -27,3 +27,11 @@ assert.ok(frames.every((f,i)=>i===0||f.time>frames[i-1].time));
 assert.ok(frames.at(-1).time>=Date.parse(run)+168*3600000);
 assert.equal(vm.runInContext(`parameterAt('t850',point,Date.parse(run)+180*3600000,null).value`,context),-3);
 console.log('Existing ICON grids, IFS schema, model transitions, precipitation and missing fields: OK');
+if(fs.existsSync('data/ifs.json')){
+ const actual=JSON.parse(fs.readFileSync('data/ifs.json','utf8'));
+ Object.assign(context,{actual,now:Date.parse(actual.generated),berlin:[13.4,52.52]});
+ vm.runInContext('realModelCache.set("IFS",validateRealData(actual,"IFS"));realDecoded.clear()',context);
+ const days=vm.runInContext(`const rows=modelLocationFrames(berlin,now,true);Array.from({length:7},(_,i)=>rows.filter(f=>localDay(f.time)===localDay(now+i*86400000)).map(f=>f.d.model))`,context);
+ assert.ok(days.every(d=>d.length),JSON.stringify(days));assert.ok(days[6].includes('IFS'));
+ console.log('Real published IFS + ICON: seven days including late-evening Today: OK');
+}
