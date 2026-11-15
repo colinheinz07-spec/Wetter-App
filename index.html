@@ -203,6 +203,8 @@ function drawAdmin(ctx,features,b,color,width){
 }
 function drawBasemap(ctx,b){
  const data=basemapData(),detailed=mapRegion==='Deutschland'||mapZoom>=2.5;
+ const coverage=detailedBoundaryTiles(b);
+ ctx.save();if(coverage.length)clipBoundaryCoverage(ctx,b,coverage,true);
  ctx.beginPath();
  for(const f of data.europeBorders)if(visibleBox(f.box,b))pathLine(ctx,f.coords,b);
  ctx.lineJoin='round';ctx.lineWidth=2.4;ctx.strokeStyle='#fffaf1a0';ctx.stroke();ctx.lineWidth=1.45;ctx.strokeStyle='#141414e8';ctx.stroke();
@@ -211,6 +213,7 @@ function drawBasemap(ctx,b){
   drawAdmin(ctx,data.states,b,'#fffaf1bb',2.7);drawAdmin(ctx,data.states,b,'#171717',1.55);
  }
  drawAdmin(ctx,[data.germany],b,'#fffaf1e6',detailed?4.3:3.1);drawAdmin(ctx,[data.germany],b,'#080808',detailed?2.65:1.9);
+ ctx.restore();drawOnlineBorders(ctx,b,coverage);
 }
 function labelCollision(box,occupied){return occupied.some(a=>box[0]<a[2]+3&&box[2]+3>a[0]&&box[1]<a[3]+3&&box[3]+3>a[1])}
 function drawTextLabel(ctx,text,x,y,occupied,size=13,district=false){
@@ -388,9 +391,8 @@ function decodeMvtTile(bytes,tile){
     }
    }else if(name==='boundary'){
     const level=Number(p.admin_level);if(f.type!==2||!Number.isFinite(level)||level<2||level>8||(level>4&&tile.z<8)||(level>6&&tile.z<10)||p.maritime===1||p.maritime===true)continue;
-    for(const coords of mvtPaths(f.geom,tile,extent)){if(coords.length<2)continue;const mid=coords[Math.floor(coords.length/2)];
-     // Retain BKG's own German administrative boundaries; add neighbors.
-     if(level<=6&&districtAt(...mid))continue;
+    for(const coords of mvtPaths(f.geom,tile,extent)){if(coords.length<2)continue;
+     // Detailed online boundaries replace generalized offline boundaries.
      out.boundaries.push({coords,level,box:lineBounds(coords)});
     }
    }else if(name==='place'&&f.type===1&&tile.z>=8){
@@ -418,7 +420,7 @@ function updateTileStatus(){
  status.textContent=loaded===tileActive.length?'Online-Grundkarte verfügbar · OpenStreetMap':failed&&loaded===0&&failed===tileActive.length?'Online-Karte nicht erreichbar · Offline-Grundkarte bleibt verfügbar':failed?'Online-Grundkarte teilweise verfügbar · fehlende Kacheln werden bei Bewegung erneut geladen':'Online-Grundkarte wird geladen …';
 }
 function requestMapTiles(b){
- if(activePage!=='map'||(!showRoads&&!showDistricts&&!showPlaces))return;
+ if(activePage!=='map')return;
  const next=tilesForView(b),key=next.map(t=>t.key).join(',');
  if(key!==tileViewKey){tileViewKey=key;tileActive=next}
  tileQueue=next.filter(t=>!tileCache.has(t.key)&&!tilePending.has(t.key)&&!(tileRetry.get(t.key)>Date.now()));
@@ -441,11 +443,34 @@ function pumpTiles(){
 function tileFeatures(b,field){
  const list=[];for(const t of tileActive){const data=tileCache.get(t.key);if(data)for(const f of data[field])if(!f.box||visibleBox(f.box,b))list.push(f)}return list;
 }
-function drawOnlineMap(ctx,b){
- requestMapTiles(b);ctx.save();
- if(showDistricts){
-  for(const level of [8,6,4,2]){ctx.beginPath();for(const f of tileFeatures(b,'boundaries'))if((f.level<=2?2:f.level<=4?4:f.level<=6?6:8)===level)pathLine(ctx,f.coords,b);ctx.strokeStyle=level===2?'#111111ed':level===4?'#161616cb':level===6?'#161616a8':'#16161675';ctx.lineWidth=level===2?1.75:level===4?1.3:level===6?.95:.7;ctx.stroke()}
+// A loaded detailed vector tile is authoritative for its geographic extent.
+// Clip BOTH sources to disjoint areas, including at partially loaded views.
+function detailedBoundaryTiles(b){
+ return tileActive.filter(t=>t.z>=8&&tileCache.has(t.key)).map(t=>{
+  const nw=tileLonLat(t.x,t.y,t.z),se=tileLonLat(t.x+1,t.y+1,t.z),a=xy(...nw,b),c=xy(...se,b);
+  return [Math.max(0,a[0]),Math.max(0,a[1]),Math.min(b.w,c[0]),Math.min(b.h,c[1])];
+ }).filter(r=>r[2]>r[0]&&r[3]>r[1]);
+}
+function clipBoundaryCoverage(ctx,b,rects,offline){
+ ctx.beginPath();if(offline)ctx.rect(0,0,b.w,b.h);
+ for(const [x,y,r,d] of rects)ctx.rect(x,y,r-x,d-y);
+ ctx.clip(offline?'evenodd':'nonzero');
+}
+function drawOnlineBorders(ctx,b,rects){
+ if(!rects.length)return;
+ ctx.save();clipBoundaryCoverage(ctx,b,rects,false);
+ const borders=tileFeatures(b,'boundaries');
+ for(const level of [8,6,4,2]){
+  if(level>4&&!showDistricts)continue;
+  ctx.beginPath();for(const f of borders)if((f.level<=2?2:f.level<=4?4:f.level<=6?6:8)===level)pathLine(ctx,f.coords,b);
+  ctx.lineJoin='round';ctx.lineCap='round';
+  if(level<=4){ctx.strokeStyle='#fffaf1bb';ctx.lineWidth=level===2?4.3:2.7;ctx.stroke()}
+  ctx.strokeStyle=level===2?'#080808':level===4?'#171717':level===6?'#141414b8':'#16161675';ctx.lineWidth=level===2?2.65:level===4?1.55:level===6?1.05:.7;ctx.stroke();
  }
+ ctx.restore();
+}
+function drawOnlineMap(ctx,b,fast=false){
+ if(!fast)requestMapTiles(b);ctx.save();
  if(showRoads){
   const roads=tileFeatures(b,'roads');ctx.lineJoin='round';ctx.lineCap='round';
   for(const [cls,outer,inner,width] of [['secondary','#20394b75','#dfdfdbaa',.8],['primary','#18334488','#f4e7baad',1.2],['trunk','#243349a0','#f5dc9bbd',1.6],['motorway','#344458b0','#fff0bfe0',2.1]]){
@@ -561,21 +586,44 @@ function hillshade(east,west,north,south,lat,dx,dy,online){
  const illumination=(-.5*nx+.5*ny+Math.SQRT1_2*nz)/norm;
  return clamp((illumination-Math.SQRT1_2)*1.9,-.86,.48);
 }
-function drawTerrain(ctx,b){
+function drawTerrain(ctx,b,fast=false){
  if(terrainMode==='weather'){terrainStatus();return}
- requestTerrain(b);
- const online=demComplete(),key=[b.west,b.east,b.south,b.north,b.w,b.h,online,online?demVersion:0,terrainMode].join('/');
+ if(!fast)requestTerrain(b);
+ const online=demComplete(),key=[b.west,b.east,b.south,b.north,b.w,b.h,online,online?demVersion:0,terrainMode,fast].join('/');
  if(!terrainCanvas)terrainCanvas=document.createElement('canvas');
  if(key!==terrainRenderKey){
   terrainRenderKey=key;
-  const w=Math.min(440,b.w),h=Math.round(w*b.h/b.w),topo=terrainMode==='topo';
+  const w=Math.min(fast?104:440,b.w),h=Math.round(w*b.h/b.w),topo=terrainMode==='topo';
   terrainCanvas.width=w;terrainCanvas.height=h;
   const out=terrainCanvas.getContext('2d'),img=out.createImageData(w,h),dx=(b.east-b.west)/w,dy=(b.north-b.south)/h;
   // Sample a padded height grid once; reuse neighboring samples for slope.
   const heights=new Float32Array((w+2)*(h+2)),stride=w+2;
-  for(let j=-1;j<=h;j++)for(let i=-1;i<=w;i++){
-   const lon=b.west+(i+.5)*dx,lat=b.north-(j+.5)*dy;
-   heights[(j+1)*stride+i+1]=terrainHeight(lon,lat,online);
+  // Project each column and row once, rather than calling Mercator math and
+  // constructing tile keys for every pixel during every map frame.
+  const z=online?demVisible[0].z:0,g=offlineTerrain();
+  const cols=Array.from({length:stride},(_,i)=>{const lon=b.west+(i-.5)*dx;return {offline:(lon-g.west)/g.step,online:online?tileX(lon,z):0}});
+  const rows=Array.from({length:h+2},(_,j)=>{const lat=b.north-(j-.5)*dy;return {offline:(g.north-lat)/g.step,online:online?tileY(lat,z):0,lat}});
+  const tileRows=new Map();
+  function pixel(tx,ty){
+   const x=Math.floor(tx/256),y=Math.floor(ty/256),t=tileRows.get(y)?.get(x);
+   return t?t.v[(ty-y*256)*256+tx-x*256]:NaN;
+  }
+  if(online)for(const t of demVisible){
+   const d=demCache.get(t.key);if(!d||d.w!==256||d.h!==256)continue;
+   if(!tileRows.has(t.y))tileRows.set(t.y,new Map());tileRows.get(t.y).set(t.x,d);
+  }
+  for(let j=0;j<h+2;j++)for(let i=0;i<stride;i++){
+   const c=cols[i],r=rows[j];let e=NaN;
+   if(online){
+    const u=c.online*256-.5,v=r.online*256-.5,x=Math.floor(u),y=Math.floor(v),fx=u-x,fy=v-y;
+    const a=pixel(x,y),b=pixel(x+1,y),d=pixel(x,y+1),f=pixel(x+1,y+1);
+    e=(a*(1-fx)+b*fx)*(1-fy)+(d*(1-fx)+f*fx)*fy;
+    if(!Number.isFinite(e)){
+     const t=tileRows.get(Math.floor(r.online))?.get(Math.floor(c.online));
+     if(t)e=bilinearHeight(t.v,t.w,t.h,(c.online%1)*256-.5,(r.online%1)*256-.5);
+    }
+   }
+   heights[j*stride+i]=Number.isFinite(e)?e:bilinearHeight(g.v,g.width,g.height,c.offline,r.offline);
   }
   let land=null;
   if(topo){
@@ -599,7 +647,7 @@ function drawTerrain(ctx,b){
   }
   out.putImageData(img,0,0);
  }
- ctx.save();ctx.imageSmoothingEnabled=true;ctx.drawImage(terrainCanvas,0,0,b.w,b.h);ctx.restore();terrainStatus();
+ ctx.save();ctx.imageSmoothingEnabled=true;ctx.drawImage(terrainCanvas,0,0,b.w,b.h);ctx.restore();if(!fast)terrainStatus();
 }
 
 
@@ -679,6 +727,8 @@ const mapParameters=[
 let mapModel='ICON-D2',mapRun=12,mapHour=0,mapZoom=1,mapPoint=null,mapPointName='',mapTimer=null,mapFrame=null,mapView=null,mapCenter=null;
 const mapCanvas=el('model-canvas');
 const mapBuffer=document.createElement('canvas');
+const mapSnapshot=document.createElement('canvas');
+let snapshotBounds=null,snapshotKey='',mapGesture=false,gestureTimer=null;
 const modelSelect=el('map-model'),parameterSelect=el('map-parameter');
 const fields=Object.fromEntries(mapParameters.map(p=>[p.id,p]));
 const mapOptions=()=>Object.keys(mapModels).filter(m=>mapRegion==='Deutschland'||m!=='ICON-D2');
@@ -748,19 +798,35 @@ function gridSample(p,lon,lat){
  if(!gridCache.has(cell)){const value=demoValue(p.mode,ix*step,iy*step);gridCache.set(cell,{value,color:Number.isFinite(value)?colorAt(p,value):[95,110,125]})}
  return gridCache.get(cell);
 }
-function drawMap(){
+function mapContentKey(){return [mapRegion,mapModel,mapRun,mapHour,mapLayer,terrainMode,showDistricts,showPlaces,showRoads,showTerrain,showWater,mapPoint?.join(',')].join('/')}
+function drawMap(fast=false){
  const p=fields[mapLayer],b=bounds();mapView=b;
- mapCanvas.width=b.w;mapCanvas.height=b.h;const ctx=mapCanvas.getContext('2d');
+ if(mapCanvas.width!==b.w)mapCanvas.width=b.w;if(mapCanvas.height!==b.h)mapCanvas.height=b.h;const ctx=mapCanvas.getContext('2d');
  if(!ctx)return;
+ ctx.clearRect(0,0,b.w,b.h);
  if(terrainMode!=='topo'){
-  const bw=Math.round(b.w/3.5),bh=Math.round(b.h/3.5);
+  const bw=Math.round(b.w/(fast?7:3.5)),bh=Math.round(b.h/(fast?7:3.5));
   mapBuffer.width=bw;mapBuffer.height=bh;const buf=mapBuffer.getContext('2d');const img=buf.createImageData(bw,bh);
   for(let j=0;j<bh;j++){const lat=b.north-j/(bh-1)*(b.north-b.south);for(let i=0;i<bw;i++){const lon=b.west+i/(bw-1)*(b.east-b.west),c=gridSample(p,lon,lat).color,n=(j*bw+i)*4;img.data[n]=c[0];img.data[n+1]=c[1];img.data[n+2]=c[2];img.data[n+3]=255}}
   buf.putImageData(img,0,0);ctx.imageSmoothingEnabled=mapZoom<4;ctx.drawImage(mapBuffer,0,0,b.w,b.h);
  }
- drawTerrain(ctx,b);
- drawGeography(ctx,b);drawOnlineMap(ctx,b);drawBasemap(ctx,b);drawMapPlaces(ctx,b);
+ drawTerrain(ctx,b,fast);
+ drawGeography(ctx,b);drawOnlineMap(ctx,b,fast);drawBasemap(ctx,b);drawMapPlaces(ctx,b);
  if(mapPoint){const [x,y]=xy(...mapPoint,b);if(x>=0&&x<=b.w&&y>=0&&y<=b.h){ctx.beginPath();ctx.arc(x,y,8,0,Math.PI*2);ctx.lineWidth=3;ctx.strokeStyle='#fff';ctx.stroke();ctx.lineWidth=1;ctx.strokeStyle='#192735';ctx.stroke()}}
+ if(mapSnapshot.width!==b.w)mapSnapshot.width=b.w;if(mapSnapshot.height!==b.h)mapSnapshot.height=b.h;
+ const snap=mapSnapshot.getContext('2d');snap.clearRect(0,0,b.w,b.h);snap.drawImage(mapCanvas,0,0);snapshotBounds=b;snapshotKey=mapContentKey();
+}
+// Reproject the last rendered map during a gesture; regenerate an inexpensive
+// preview only when movement exposes new terrain or magnifies it excessively.
+function drawMapGesture(){
+ const b=bounds(),s=snapshotBounds,ctx=mapCanvas.getContext('2d');
+ if(s&&snapshotKey===mapContentKey()&&b.w===s.w&&b.h===s.h){
+  const [x,y]=xy(s.west,s.north,b),[right,bottom]=xy(s.east,s.south,b),w=right-x,h=bottom-y;
+  if(w<=b.w*1.35&&h<=b.h*1.35&&x<=.01&&y<=.01&&right>=b.w-.01&&bottom>=b.h-.01){
+   ctx.clearRect(0,0,b.w,b.h);ctx.imageSmoothingEnabled=true;ctx.drawImage(mapSnapshot,x,y,w,h);mapView=b;return;
+  }
+ }
+ drawMap(true);
 }
 function legend(){
  if(terrainMode==='topo'){el('legend-name').textContent='Geländehöhe';el('legend-unit').textContent='m';el('legend-strip').style.background='linear-gradient(90deg,'+topoPalette.join(',')+')';el('legend-ticks').innerHTML=topoStops.map(v=>'<span>'+v.toLocaleString('de-DE')+'</span>').join('');return}
@@ -791,7 +857,15 @@ function mapLabels(){
  el('map-zoom-minus').disabled=mapZoom<=1;el('map-zoom-plus').disabled=mapZoom>=24;el('map-zoom-level').textContent=mapZoom.toFixed(1)+'×';
 }
 function refreshMap(){mapLabels();legend();drawMap();renderSample()}
-function scheduleMap(){if(mapFrame!==null)cancelAnimationFrame(mapFrame);mapFrame=requestAnimationFrame(()=>{mapFrame=null;refreshMap()})}
+function scheduleMap(){if(mapFrame!==null)return;mapFrame=requestAnimationFrame(()=>{mapFrame=null;if(mapGesture){drawMapGesture();el('map-zoom-minus').disabled=mapZoom<=1;el('map-zoom-plus').disabled=mapZoom>=24;el('map-zoom-level').textContent=mapZoom.toFixed(1)+'×'}else refreshMap()})}
+function beginMapGesture(){
+ mapGesture=true;if(gestureTimer!==null)clearTimeout(gestureTimer);
+ gestureTimer=setTimeout(endMapGesture,140);
+}
+function endMapGesture(){
+ if(gestureTimer!==null)clearTimeout(gestureTimer);gestureTimer=null;
+ if(mapGesture){mapGesture=false;scheduleMap()}
+}
 function renderMap(){
  const list=mapOptions();if(!list.includes(mapModel))mapModel=list[0];const model=mapModels[mapModel];
  modelSelect.innerHTML=list.map(s=>'<option value="'+s+'" '+(s===mapModel?'selected':'')+'>'+s+'</option>').join('');
@@ -819,20 +893,20 @@ function centerView(lon,lat){
 function zoomAt(next,u=.5,v=.5){
  const old=bounds(),[lon,lat]=lonlat(u*old.w,v*old.h,old);mapZoom=clamp(next,1,24);
  const b=baseBounds();centerView(lon+(.5-u)*(b.east-b.west)/mapZoom,lat+(v-.5)*(b.north-b.south)/mapZoom);
- scheduleMap();
+ beginMapGesture();scheduleMap();
 }
 function panBy(du,dv){
  const b=bounds();centerView((b.west+b.east)/2-du*(b.east-b.west),(b.south+b.north)/2+dv*(b.north-b.south));
 }
 function pointerPosition(e){const r=mapCanvas.getBoundingClientRect();return [(e.clientX-r.left)/r.width,(e.clientY-r.top)/r.height]}
-function pointerPair(){const [a,b]=[...mapPointers.values()];return a&&b?{u:(a.pos[0]+b.pos[0])/2,v:(a.pos[1]+b.pos[1])/2,d:Math.hypot(a.pos[0]-b.pos[0],a.pos[1]-b.pos[1])}:null}
+function pointerPair(){const [a,b]=[...mapPointers.values()];return a&&b?{u:(a.pos[0]+b.pos[0])/2,v:(a.pos[1]+b.pos[1])/2,d:Math.hypot((a.pos[0]-b.pos[0])*mapCanvas.clientWidth,(a.pos[1]-b.pos[1])*mapCanvas.clientHeight)}:null}
 el('map-zoom-plus').addEventListener('click',()=>zoomAt(mapZoom*1.5));
 el('map-zoom-minus').addEventListener('click',()=>zoomAt(mapZoom/1.5));
-el('map-zoom-reset').addEventListener('click',()=>{mapZoom=1;mapCenter=null;mapPoint=null;mapPointName='';scheduleMap()});
+el('map-zoom-reset').addEventListener('click',()=>{endMapGesture();mapZoom=1;mapCenter=null;mapPoint=null;mapPointName='';scheduleMap()});
 mapCanvas.addEventListener('wheel',e=>{e.preventDefault();const [u,v]=pointerPosition(e);zoomAt(mapZoom*Math.exp(-e.deltaY*.0025),u,v)},{passive:false});
 mapCanvas.addEventListener('pointerdown',e=>{
  if(e.button!==0&&e.pointerType==='mouse')return;
- if(mapPointers.size===0)pointerMoved=false;
+ if(mapPointers.size===0){pointerMoved=false;stopPlay()}
  const pos=pointerPosition(e);mapPointers.set(e.pointerId,{pos,start:pos});if(mapPointers.size>1)pointerMoved=true;
  if(mapCanvas.setPointerCapture)mapCanvas.setPointerCapture(e.pointerId);
 });
@@ -840,14 +914,15 @@ mapCanvas.addEventListener('pointermove',e=>{
  const pointer=mapPointers.get(e.pointerId);if(!pointer)return;
  const oldPair=pointerPair(),pos=pointerPosition(e),old=pointer.pos;pointer.pos=pos;
  if(Math.hypot(pos[0]-pointer.start[0],pos[1]-pointer.start[1])>.008)pointerMoved=true;
- if(mapPointers.size>=2){const next=pointerPair();if(oldPair&&next&&oldPair.d>.005){panBy(next.u-oldPair.u,next.v-oldPair.v);zoomAt(mapZoom*next.d/oldPair.d,next.u,next.v)}}
- else if(pointerMoved){panBy(pos[0]-old[0],pos[1]-old[1]);scheduleMap()}
+ if(mapPointers.size>=2){const next=pointerPair();if(oldPair&&next&&oldPair.d>2){panBy(next.u-oldPair.u,next.v-oldPair.v);zoomAt(mapZoom*next.d/oldPair.d,next.u,next.v)}}
+ else if(pointerMoved){panBy(pos[0]-old[0],pos[1]-old[1]);beginMapGesture();scheduleMap()}
 });
 function finishPointer(e,cancelled){
  const pointer=mapPointers.get(e.pointerId);if(!pointer)return;
  const single=mapPointers.size===1;mapPointers.delete(e.pointerId);
  if(!cancelled&&single&&!pointerMoved){const b=bounds(),[u,v]=pointerPosition(e);mapPoint=lonlat(u*b.w,v*b.h,b);mapPointName='';scheduleMap()}
  if(mapCanvas.hasPointerCapture&&mapCanvas.hasPointerCapture(e.pointerId))mapCanvas.releasePointerCapture(e.pointerId);
+ if(mapPointers.size===0)endMapGesture();
 }
 mapCanvas.addEventListener('pointerup',e=>finishPointer(e,false));
 mapCanvas.addEventListener('pointercancel',e=>finishPointer(e,true));
