@@ -25,6 +25,15 @@ MODELS = {
 }
 # Source variable names and output units. Accumulation stays in kg/m² = mm.
 VARIABLES = ("t_2m", "td_2m", "u_10m", "v_10m", "pmsl", "tot_prec", "clct")
+# Optional products: do not invalidate a working base forecast if a field
+# is absent from a particular cycle/step. All output uses explicit units.
+EXTRA = {"vmax_10m":("gust",3.6,0,.1),"h_snow":("snowdepth",100,0,.1),
+         "cape_ml":("mlcape",1,0,1),"cin_ml":("mlcin",1,0,1),
+         "vis":("visibility",.001,0,.1),"tqv":("pwat",1,0,.1),
+         "relhum_2m":("rh2",1,0,.1),"clcl":("lowcloud",1,0,.1),
+         "clcm":("midcloud",1,0,.1),"clch":("highcloud",1,0,.1),
+         "t_g":("tground",1,-273.15,.1),"snowlmt":("snowline",1,0,1),
+         "hzerocl":("freezing",1,0,1)}
 FILENAME = re.compile(r'href="([^"]*regular-lat-lon_single-level_(\d{10})_(\d{3})[^"]*\.grib2\.bz2)"')
 
 
@@ -121,6 +130,12 @@ def pack(values, scale):
 def model_data(model):
     cfg=MODELS[model]; hours=cfg["hours"]; x,y=target_grid(cfg)
     stamp,offers=choose_run(model,hours)
+    def optional_listing(v):
+        try: return v,listing(model,stamp[-2:],v)
+        except Exception as exc:
+            print(f"Optional {model} {v}: {exc}",flush=True);return v,{}
+    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+        extra_offers=dict(pool.map(optional_listing,EXTRA))
     print(f"{model}: {stamp} · {len(hours)} steps",flush=True)
     frames={}
     for hour in hours:
@@ -140,11 +155,25 @@ def model_data(model):
             ("temp2",temp,.1),("dew",dew,.1),("wind",np.hypot(fields["u_10m"],fields["v_10m"])*3.6,.1),
             ("slp",fields["pmsl"]/100,.1),("rainTotal",precip,.1),("cloud",fields["clct"],.1),
         )}
+        # Meteorological direction (direction from which the wind blows).
+        frames[str(hour)]["winddir"]=pack((np.degrees(np.arctan2(-fields["u_10m"],-fields["v_10m"]))+360)%360,.1)
+        def extra_field(variable):
+            url=extra_offers[variable].get((stamp,hour))
+            if not url:return None
+            try:
+                key,factor,offset,scale=EXTRA[variable]
+                values=sample_grib(download(url),x,y,stamp,hour)
+                return key,pack(values*factor+offset,scale)
+            except Exception as exc:
+                print(f"Optional {model} {variable} +{hour}: {exc}",flush=True);return None
+        with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+            for result in pool.map(extra_field,EXTRA):
+                if result:frames[str(hour)][result[0]]=result[1]
         if not np.isfinite(temp).any():
             raise ValueError("Empty temperature field")
         print(f"{model} +{hour:03d}h",flush=True)
     start=dt.datetime.strptime(stamp,"%Y%m%d%H").replace(tzinfo=dt.timezone.utc)
-    return dict(schema=1,model=cfg["name"],source="Deutscher Wetterdienst (DWD) Open Data",sourceUrl=f"{ROOT}/{model}/",run=start.isoformat(),generated=dt.datetime.now(dt.timezone.utc).isoformat(),grid=dict(west=float(x[0]),south=float(y[0]),step=cfg["delta"],nx=len(x),ny=len(y),scale=.1,missing=-32768),hours=hours,frames=frames)
+    return dict(schema=1,model=cfg["name"],source="Deutscher Wetterdienst (DWD) Open Data",sourceUrl=f"{ROOT}/{model}/",run=start.isoformat(),generated=dt.datetime.now(dt.timezone.utc).isoformat(),grid=dict(west=float(x[0]),south=float(y[0]),step=cfg["delta"],nx=len(x),ny=len(y),scale=.1,missing=-32768),scales={key:scale for key,_,_,scale in EXTRA.values()},hours=hours,frames=frames)
 
 
 def main():

@@ -1,0 +1,34 @@
+name: DWD observations and radar clock
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '7,37 * * * *'
+  push:
+    branches: [main]
+    paths: ['.github/workflows/observations.yml', 'scripts/ingest-observations.py']
+permissions:
+  contents: write
+concurrency:
+  group: dwd-observations
+  cancel-in-progress: false
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install observation decoder
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-eccodes
+      - name: Import station observations and radar time
+        run: /usr/bin/python3 scripts/ingest-observations.py
+      - name: Publish station snapshot
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/stations.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Refresh DWD observations"
+          git pull --rebase origin main
+          git push origin HEAD:main

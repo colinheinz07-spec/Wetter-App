@@ -1,6 +1,8 @@
 name: DWD model data (prototype)
 on:
   workflow_dispatch:
+  schedule:
+    - cron: '35 3,9,15,21 * * *'
   push:
     branches: [main]
     paths: ['.github/workflows/icon-data.yml', 'scripts/ingest-icon.py']
@@ -12,7 +14,7 @@ concurrency:
 jobs:
   import:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - name: Install GRIB decoder
