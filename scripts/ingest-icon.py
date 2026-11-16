@@ -129,12 +129,19 @@ def sample_grib(blob, x, y, stamp, hour, interval=None):
             xx,yy=lon[0,:],lat[:,0]
             if not (np.allclose(lon,xx[None,:]) and np.allclose(lat,yy[:,None])):
                 raise ValueError("Grid coordinate axes not rectangular")
+            missing=ec.codes_get_double(gid,"missingValue")
+            if x is None and y is None:
+                # Preserve the actual published DWD grid, including its origin
+                # and spacing; never regrid an already high-resolution field.
+                ix,iy=np.argsort(xx),np.argsort(yy)
+                out=vals[np.ix_(iy,ix)].astype(float)
+                out[(out==missing)|(~np.isfinite(out))|(np.abs(out)>1e8)]=np.nan
+                return xx[ix],yy[iy],out
             xi=np.abs(xx[None,:]-x[:,None]).argmin(axis=1)
             yi=np.abs(yy[None,:]-y[:,None]).argmin(axis=1)
             out=vals[np.ix_(yi,xi)].astype(float)
             out[(y<yy.min()-1e-5)|(y>yy.max()+1e-5),:]=np.nan
             out[:,(x<xx.min()-1e-5)|(x>xx.max()+1e-5)]=np.nan
-            missing=ec.codes_get_double(gid,"missingValue")
             out[(out==missing)|(~np.isfinite(out))|(np.abs(out)>1e8)]=np.nan
             return out
         finally:

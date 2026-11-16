@@ -123,6 +123,23 @@ assert.ok(vm.runInContext(`const coarseHours=hourlyForecast([{periods:[coarsePer
 vm.runInContext(`const freshRun=new Date(Date.parse(nightRun)+12*HOUR_MS).toISOString(),fresh={...coarseFixture,run:freshRun,generated:freshRun};realModelCache.set('ICON-D2',fresh);hourlyModelCache.set('ICON-D2',[nightFixture]);`,context);
 assert.equal(vm.runInContext(`forecastCandidates(localBounds[2],localBounds[3],nightStart)[0].run`,context),vm.runInContext(`freshRun`,context));
 assert.equal(vm.runInContext(`forecastCandidates(localBounds[0],localBounds[1],nightStart)[0].run`,context),vm.runInContext(`nightRun`,context));
+// Freilingen regression: an older hourly run cannot override a newer cycle,
+// and the original temperature cell overrides the coarsened map cell only
+// for the identical model initialization and valid time.
+vm.runInContext(`const recentRun=new Date(Date.parse(nightRun)+9*HOUR_MS).toISOString(),recent={...coarseFixture,run:recentRun,generated:recentRun};realModelCache.set('ICON-D2',recent);`,context);
+assert.equal(vm.runInContext(`forecastCandidates(localBounds[2],localBounds[3],nightStart)[0].run`,context),vm.runInContext(`recentRun`,context));
+const locPacked=vals=>{const bytes=Buffer.alloc(vals.length*2);vals.forEach((v,i)=>bytes.writeInt16LE(v,i*2));return bytes.toString('base64')};
+Object.assign(context,{locPacked});
+vm.runInContext(`const freilingen=[7.8347,50.5592],tileRun=nightRun,tileMeta={run:tileRun,generated:tileRun,tileSize:2,grid:{west:7.82,south:50.54,dx:.02,dy:.02,nx:2,ny:2}};nativeTemperatureMeta=tileMeta;nativeTemperatureTiles.set('0-0',{run:tileRun,generated:tileRun,frames:Object.fromEntries(nightHours.map(h=>[h,{temp2:locPacked([60,60,60,h===24?29:60]),tmin:locPacked([60,60,60,23])}]))});const testF={d:nightFixture,point:freilingen,hour:24};`,context);
+assert.ok(Math.abs(vm.runInContext(`frameVal(testF,'temp2')`,context)-2.9)<1e-8);
+assert.ok(Math.abs(vm.runInContext(`frameVal(testF,'tmin')`,context)-2.3)<1e-8);
+assert.equal(vm.runInContext(`nativeTemperatureValue({...nightFixture,run:recentRun},freilingen,24,'temp2')`,context),null);
+assert.equal(vm.runInContext(`nativeTemperatureCell(freilingen).n`,context),3);
+assert.ok(vm.runInContext(`Number.isNaN(frameVal(testF,'tmax'))`,context));
+assert.equal(vm.runInContext(`periodTemperature({lo:3,mean:6},0)`,context),3);
+assert.equal(vm.runInContext(`periodTemperature({lo:3,mean:6},1)`,context),6);
+vm.runInContext(`nativeTemperatureMeta=null;nativeTemperatureTiles.clear()`,context);
+console.log('Freilingen regression: exact original cell, run isolation and night minimum: OK');
 vm.runInContext(`realModelCache.clear();for(const [m,d] of savedModels)realModelCache.set(m,d);hourlyModelCache.clear()`,context);
 console.log('Local midnight, DST, true nocturnal minima, dry night icons and coarse temperature interpolation: OK');
 if(fs.existsSync('data/ifs.json')){

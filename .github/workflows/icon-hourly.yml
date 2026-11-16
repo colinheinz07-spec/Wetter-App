@@ -5,7 +5,7 @@ on:
     - cron: '15 2,5,8,11,14,17,20,23 * * *'
   push:
     branches: [main]
-    paths: ['scripts/ingest-icon-hourly.py', '.github/workflows/icon-hourly.yml']
+    paths: ['scripts/ingest-icon-hourly.py', 'scripts/ingest-icon-temperature.py', 'scripts/ingest-icon.py', '.github/workflows/icon-hourly.yml']
 permissions:
   contents: write
 concurrency:
@@ -14,7 +14,7 @@ concurrency:
 jobs:
   import:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -31,5 +31,16 @@ jobs:
           git add data/${{ matrix.model }}-hourly.json.gz data/${{ matrix.model }}-hourly.meta.json
           if git diff --cached --quiet; then exit 0; fi
           git commit -m 'Refresh hourly ICON surface forecasts'
+          git pull --rebase origin main
+          git push origin HEAD:main || (git pull --rebase origin main && git push origin HEAD:main)
+      - name: Native ICON-D2 temperature tiles
+        if: matrix.model == 'icon-d2'
+        run: /usr/bin/python3 scripts/ingest-icon-temperature.py
+      - name: Publish native temperature tiles
+        if: matrix.model == 'icon-d2'
+        run: |
+          git add data/icon-d2-temperature
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'Refresh original-grid ICON-D2 temperatures'
           git pull --rebase origin main
           git push origin HEAD:main || (git pull --rebase origin main && git push origin HEAD:main)
