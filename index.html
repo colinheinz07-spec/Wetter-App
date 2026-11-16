@@ -1417,10 +1417,83 @@ function supplementalWeatherField(d,h){
  if(!extra||Date.parse(extra.run)!==Date.parse(d.run)||['west','south','step','nx','ny'].some(k=>extra.grid?.[k]!==d.grid[k]))return null;
  return extra.frames?.[h];
 }
-function realData(){return modelDataMode==='real'?(modelRuns(mapModel).find(d=>Date.parse(d.run)===selectedMapRun)||modelRuns(mapModel)[0]):null}
+const nativeMapModels=new Map(),nativeMapChecks=new Map(),nativeMapLoading=new Map(),nativeFieldLoading=new Map();
+function mapModelRuns(model){
+ const native=[nativeMapModels.get(realModelFiles[model]),...(model==='IFS'?[nativeMapModels.get('ifs-short')]:[])].filter(Boolean).sort((a,b)=>Date.parse(b.run)-Date.parse(a.run));
+ return native.length?native:modelRuns(model);
+}
+function realData(){return modelDataMode==='real'?(mapModelRuns(mapModel).find(d=>Date.parse(d.run)===selectedMapRun)||mapModelRuns(mapModel)[0]):null}
+function nativeMapRoot(file){return 'https://raw.githubusercontent.com/colinheinz07-spec/Wetter-App/generated-native-'+file+'/'}
+async function nativeMapRead(file,path,zip=false,version=''){
+ try{
+  const r=await fetch(nativeMapRoot(file)+path+'?v='+encodeURIComponent(version||Math.floor(Date.now()/60000)),{cache:'no-store',credentials:'omit',signal:AbortSignal.timeout(zip?45000:10000)});
+  if(!r.ok)return null;if(!zip)return await r.json();
+  const a=await r.arrayBuffer(),b=new Uint8Array(a);
+  return b[0]===31&&b[1]===139?await new Response(new Blob([a]).stream().pipeThrough(new DecompressionStream('gzip'))).json():JSON.parse(new TextDecoder().decode(a));
+ }catch{return null}
+}
+function validateNativeMapManifest(m,model,file){
+ const g=m?.grid;
+ if(m?.schema!==2||m.model!==model||!Number.isFinite(Date.parse(m.run))||!Number.isFinite(Date.parse(m.generated))||!g||![g.west,g.south,g.step].every(Number.isFinite)||g.step<=0||g.scale!==.1||g.missing!==-32768||![g.nx,g.ny].every(n=>Number.isInteger(n)&&n>1)||g.nx*g.ny>2000000)throw Error('Ungültiges Originalraster');
+ const fields=m.frames,hs=m.hours;
+ if(!Array.isArray(hs)||hs.length<2||hs[0]!==0||!hs.every((h,i)=>Number.isInteger(h)&&h===i*hs[1])||hs[1]<=0)throw Error('Ungültige Modellzeiten');
+ const fs={};
+ for(const h of hs){
+  if(!Array.isArray(fields?.[h])||!['temp2','dew','wind','slp','cloud','rainTotal'].every(k=>fields[h].includes(k)))throw Error('Unvollständiger Originalmodelllauf');
+  fs[h]={};for(const k of fields[h]){
+   if(typeof k!=='string'||!/^\w+$/.test(k)||!Number.isFinite(m.scales?.[k])||m.scales[k]<=0)throw Error('Ungültiges Modellfeld');
+   fs[h][k]=true;
+  }
+ }
+ return {...m,frames:fs,nativeMap:true,file,decoded:new Map()};
+}
+async function fetchNativeMapModel(model,force=false){
+ if(!realModelFiles[model])return;
+ const files=[realModelFiles[model],...(model==='IFS'?['ifs-short']:[])];
+ await Promise.all(files.map(async file=>{
+  if(nativeMapLoading.has(file))return nativeMapLoading.get(file);
+  if(!force&&Date.now()-(nativeMapChecks.get(file)||0)<2*60000)return;
+  nativeMapChecks.set(file,Date.now());
+  const task=(async()=>{try{
+   const raw=await nativeMapRead(file,'index.json'),m=validateNativeMapManifest(raw,model,file);
+   if(newerSnapshot(m,nativeMapModels.get(file))){nativeMapModels.set(file,m);realModelRevision++;if(activePage==='map'&&mapModel===model)renderMap()}
+  }catch{}})().finally(()=>nativeMapLoading.delete(file));
+  nativeMapLoading.set(file,task);return task;
+ }));
+}
+function mapFieldRequirements(d,p,h){
+ const id=p.id==='rh'?'rh2':p.id,step=d.hours[1],interval=id==='rainrate'||id==='radiation'?step:/^rain\d+$/.test(id)||id==='conv'||id==='strat'?p.interval:0;
+ const keys=/^windp\d+$/.test(id)?['u'+id.slice(5),'v'+id.slice(5)]:id==='radiation'?['solarTotal']:id==='conv'?['convTotal']:id==='strat'?['convTotal','rainTotal']:id==='tt'?['t850','rh850','t500']:id==='ki'?['t850','rh850','t700','rh700','t500']:interval?['rainTotal']:[id];
+ return keys.flatMap(k=>interval?[[h,k],[h-interval,k]]:[[h,k]]);
+}
+function fetchNativeMapFields(d,p,h){
+ if(!d?.nativeMap)return;
+ const requirements=mapFieldRequirements(d,p,h);
+ if(!requirements.every(([t,k])=>d.frames[t]?.[k]))return;
+ const pending=requirements.filter(([t,k])=>!d.decoded.has(t+'/'+k));
+ if(!pending.length)return;
+ const tasks=pending.map(([t,k])=>{
+  const id=t+'/'+k,key=d.file+'/'+d.generated+'/'+id;
+  if(nativeFieldLoading.has(key))return nativeFieldLoading.get(key);
+  const checked='field/'+key;
+  if(Date.now()-(nativeMapChecks.get(checked)||0)<30000)return Promise.resolve(false);
+  nativeMapChecks.set(checked,Date.now());
+  const task=(async()=>{
+   const v=await nativeMapRead(d.file,t+'-'+k+'.json.gz',true,d.generated);
+   if(!v||v.schema!==2||v.run!==d.run||v.generated!==d.generated||v.hour!==t||v.field!==k||typeof v.values!=='string')return false;
+   try{const raw=atob(v.values);if(raw.length!==d.grid.nx*d.grid.ny*2)return false;
+    const a=new Int16Array(raw.length/2);for(let n=0;n<a.length;n++)a[n]=(raw.charCodeAt(n*2)|(raw.charCodeAt(n*2+1)<<8))<<16>>16;
+    d.decoded.set(id,a);while(d.decoded.size>24)d.decoded.delete(d.decoded.keys().next().value);return true;
+   }catch{return false}
+  })().finally(()=>nativeFieldLoading.delete(key));nativeFieldLoading.set(key,task);return task;
+ });
+ Promise.all(tasks).then(a=>{if(a.some(Boolean)&&activePage==='map'&&realData()===d&&mapLayer===p.id&&mapHour===h){realModelRevision++;scheduleMap()}});
+}
+function nativeFieldsReady(d,p,h){return !!d?.nativeMap&&mapFieldRequirements(d,p,h).every(([t,k])=>d.decoded.has(t+'/'+k));}
 let selectedMapRun=null;
 function realModelSupported(p,step,max,anyHour=false){
  const d=realData(),id=p.id==='rh'?'rh2':p.id;if(!d||p.interval>max)return false;
+ if(d.nativeMap){const available=h=>mapFieldRequirements(d,p,h).every(([t,k])=>!!d.frames?.[t]?.[k]);return anyHour?d.hours.some(available):available(mapHour);}
  const interval=id==='rainrate'||id==='radiation'?step:/^rain\d+$/.test(id)||id==='conv'||id==='strat'?p.interval:0;
  const keys=/^windp\d+$/.test(id)?['u'+id.slice(5),'v'+id.slice(5)]:id==='radiation'?['solarTotal']:id==='conv'?['convTotal']:id==='strat'?['convTotal','rainTotal']:id==='tt'?['t850','rh850','t500']:id==='ki'?['t850','rh850','t700','rh700','t500']:interval?['rainTotal']:[id];
  const available=h=>keys.every(k=>!!d.frames?.[h]?.[k]&&(!interval||!!d.frames?.[h-interval]?.[k]));
@@ -1428,7 +1501,7 @@ function realModelSupported(p,step,max,anyHour=false){
 }
 function effectiveModel(){
  const base=mapModels[mapModel],d=realData();
- if(d)return {...base,step:d.hours[1]-d.hours[0],max:d.hours.at(-1),grid:mapLayer==='temp2'&&matchingNativeMap()?matchingNativeMap().meta.grid.dx:d.grid.step};
+ if(d)return {...base,step:d.hours[1]-d.hours[0],max:d.hours.at(-1),grid:d.nativeMap?d.grid.step:mapLayer==='temp2'&&matchingNativeMap()?matchingNativeMap().meta.grid.dx:d.grid.step};
  if(modelDataMode==='real'&&realModelFiles[mapModel])return {...base,step:mapModel==='ICON-D2'?3:6,max:modelMax(mapModel)};
  return base;
 }
@@ -1443,6 +1516,7 @@ function validateRealData(d,model){
  return d;
 }
 function decodeRealField(d,h,id){
+ if(d.nativeMap)return d.decoded.get(h+'/'+id)||null;
  const k=d.model+'/'+d.run+'/'+d.hours[1]+'/'+d.generated+'/'+h+'/'+id;if(realDecoded.has(k))return realDecoded.get(k);
  const packed=d.frames?.[h]?.[id]||(id==='ww'?supplementalWeatherField(d,h):null);if(!packed)return null;
  try{
@@ -1522,8 +1596,9 @@ function modelStatus(){
  if(d){
   const provider=modelProvider(d.model),old=Date.now()-Date.parse(d.run)>modelAgeLimit(d.model)*3600000;
   const count=new Set(Object.values(d.frames).flatMap(Object.keys)).size;
+  if(d.nativeMap){const ready=nativeFieldsReady(d,fields[mapLayer],mapHour),available=realModelSupported(fields[mapLayer],d.hours[1],d.hours.at(-1));return {label:ready?'Originalraster':available?'Originaldaten werden geladen':'Keine Originaldaten',detail:provider+' · '+d.grid.step.toLocaleString('de-DE',{maximumFractionDigits:5})+'° Originalraster · keine räumliche Glättung'+(old?' · nicht aktuell':'')}}
   if(mapLayer==='temp2'){const n=matchingNativeMap();return {label:n?'Originalraster':'Originaltemperatur ausstehend',detail:provider+' · '+(n?n.meta.grid.dx.toLocaleString('de-DE',{maximumFractionDigits:5})+'° Originalraster · ungeglättete Modellzellen':'Passender Originalraster-Modelllauf wird geladen · keine Ersatzwerte')+(old?' · nicht aktuell':'')}}
-  return {label:old?'Archivierter Modelllauf':provider+' · Realdaten',detail:'Quelle: '+(provider==='ECMWF'?'ECMWF '+d.model+' · CC BY 4.0 · aufbereitet':provider==='NOAA'?'NOAA / NCEP GFS':'Deutscher Wetterdienst')+' · '+count+' Datenfelder · Raster reduziert ('+d.grid.step.toLocaleString('de-DE')+'°)'+(old?' · nicht aktuell':'')};
+  return {label:'Originaldaten ausstehend',detail:'Quelle: '+(provider==='ECMWF'?'ECMWF '+d.model+' · CC BY 4.0 · aufbereitet':provider==='NOAA'?'NOAA / NCEP GFS':'Deutscher Wetterdienst')+' · Originalraster wird importiert · keine gröberen Ersatzkarten'+(old?' · nicht aktuell':'')};
  }
  if(!realModelFiles[mapModel])return {label:'Noch nicht angebunden',detail:'Für dieses Modell stehen noch keine echten Daten bereit.'};
  return {label:realModelRequests.has(mapModel)?'Modell wird geladen …':'Keine Realdaten verfügbar',detail:modelProvider(mapModel)+'-Modelllauf noch nicht verfügbar. Aktualisieren oder ausdrücklich Demo wählen.'};
@@ -1533,7 +1608,7 @@ function selectModelDataMode(mode){
 }
 function initModelData(){
  el('map-data-mode').addEventListener('change',e=>selectModelDataMode(e.target.value));
- el('map-data-refresh').addEventListener('click',()=>{if(modelDataMode==='real')fetchRealModel(mapModel,true)});
+ el('map-data-refresh').addEventListener('click',()=>{if(modelDataMode==='real'){fetchNativeMapModel(mapModel,true);fetchRealModel(mapModel,true)}});
  modelDataMode='real';el('map-data-mode').value='real';renderMap();
 }
 
@@ -1885,7 +1960,7 @@ function matchingNativeMap(){
  return d&&f&&d.model===f.meta.model&&Date.parse(d.run)===Date.parse(f.meta.run)&&mapHour===f.hour?f:null;
 }
 async function fetchNativeMapTemperature(){
- const d=realData();if(!d||mapSource!=='model'||mapLayer!=='temp2'||modelDataMode!=='real')return;
+ const d=realData();if(!d||d.nativeMap||mapSource!=='model'||mapLayer!=='temp2'||modelDataMode!=='real')return;
  if(matchingNativeMap())return;
  const key=d.model+'/'+d.run+'/'+mapHour;if(nativeMapRequestedKey===key&&(nativeMapRequest||Date.now()-nativeMapRetry<60000))return;
  nativeMapRequestedKey=key;nativeMapRetry=Date.now();const h=mapHour;
@@ -2188,7 +2263,7 @@ const mapParameters=[
  P('s06','Scherung & Helizität','Scherung · 0–6 km','m/s',[0,5,10,15,20,25,30,40,50],'index','s06'),
  P('srh01','Scherung & Helizität','Helizität · 0–1 km','m²/s²',[0,25,50,75,100,150,200,300,400],'index','srh01'),
  P('srh03','Scherung & Helizität','Helizität · 0–3 km','m²/s²',[0,50,100,150,200,250,350,500,700],'index','srh03'),
- P('thetae','Vertikalprofil','Theta-e · 850 hPa','K',[270,280,290,300,310,320,330,340,350],'temp','thetae'),
+ P('thetae','Vertikalprofil','Theta-e · 850 hPa (abgeleitet)','K',[270,280,290,300,310,320,330,340,350],'temp','thetae'),
  P('lcl','Vertikalprofil','LCL · über Grund','m',[0,250,500,750,1000,1500,2000,2500,3500],'index','lcl'),
  P('lfc','Vertikalprofil','LFC · über Grund','m',[0,250,500,750,1000,1500,2000,3000,4000],'index','lfc'),
  P('el','Vertikalprofil','EL · über Grund','m',[0,1000,2000,4000,6000,8000,10000,12000,15000],'index','el'),
@@ -2286,7 +2361,7 @@ const citiesEU=[['London',-.127,51.507],['Paris',2.35,48.86],['Berlin',13.405,52
 // and zoom. This mock adapter will be replaced by actual native model grids.
 let gridKey='',gridCache=new Map();
 function gridSample(p,lon,lat){
- if(modelDataMode==='real'){const d=realData(),value=p.id==='temp2'?nativeMapTemperatureValue(matchingNativeMap(),lon,lat):realModelValue(d,p,lon,lat,mapHour);return {value,color:Number.isFinite(value)?colorAt(p,value):[95,110,125]}}
+ if(modelDataMode==='real'){const d=realData(),value=d?.nativeMap?nativeFieldsReady(d,p,mapHour)?realModelValue(d,p,lon,lat,mapHour):NaN:p.id==='temp2'?nativeMapTemperatureValue(matchingNativeMap(),lon,lat):NaN;return {value,color:Number.isFinite(value)?colorAt(p,value):[95,110,125]}}
  const key=[mapModel,mapRun,mapHour,p.id].join('/');if(gridKey!==key){gridKey=key;gridCache.clear()}
  const step=mapModels[mapModel].grid,ix=Math.round(lon/step),iy=Math.round(lat/step),cell=ix+':'+iy;
  if(!gridCache.has(cell)){const value=demoValue(p.mode,ix*step,iy*step);gridCache.set(cell,{value,color:Number.isFinite(value)?colorAt(p,value):[95,110,125]})}
@@ -2306,32 +2381,11 @@ function pressureExtrema(values,g,radius){
  }
  return found.sort((a,b)=>b.strength-a.strength).filter((p,i,all)=>!all.slice(0,i).some(q=>q.label===p.label&&Math.hypot(q.x-p.x,q.y-p.y)<radius*2));
 }
-function drawRealPressure(ctx,b,fast){
- if(fast||mapSource!=='model'||modelDataMode!=='real'||terrainMode==='topo'||!['slp','z500'].includes(mapLayer))return;
- const d=realData(),g=d?.grid,raw=d&&decodeRealField(d,mapHour,'slp');if(!raw)return;
- const scale=d.scales?.slp??g.scale,values=Float32Array.from(raw,v=>v===g.missing?NaN:v*scale);
- const pos=(x,y)=>xy(g.west+x*g.step,g.south+y*g.step,b);
- const xmin=Math.max(0,Math.floor((b.west-g.west)/g.step)),xmax=Math.min(g.nx-1,Math.ceil((b.east-g.west)/g.step));
- const ymin=Math.max(0,Math.floor((b.south-g.south)/g.step)),ymax=Math.min(g.ny-1,Math.ceil((b.north-g.south)/g.step));
- ctx.save();ctx.strokeStyle='#24384eb0';ctx.lineWidth=.8;
- for(let y=ymin;y<ymax;y++)for(let x=xmin;x<xmax;x++){
-  const corners=[[x,y],[x+1,y],[x+1,y+1],[x,y+1]],vs=corners.map(([a,c])=>values[c*g.nx+a]);if(!vs.every(Number.isFinite))continue;
-  for(let p=Math.ceil(Math.min(...vs)/5)*5;p<=Math.max(...vs);p+=5){const crossings=[];
-   for(let k=0;k<4;k++){const n=(k+1)%4,a=vs[k],z=vs[n];if((a<p)===(z<p)||a===z)continue;const t=(p-a)/(z-a);crossings.push(pos(corners[k][0]+t*(corners[n][0]-corners[k][0]),corners[k][1]+t*(corners[n][1]-corners[k][1])))}
-   if(crossings.length>=2){ctx.beginPath();for(let k=0;k+1<crossings.length;k+=2){ctx.moveTo(...crossings[k]);ctx.lineTo(...crossings[k+1])}ctx.stroke()}
-  }
- }
- for(const p of pressureExtrema(values,g,Math.max(2,Math.round(1.25/g.step)))){
-  const [x,y]=pos(p.x,p.y);if(x<20||x>b.w-20||y<20||y>b.h-25)continue;
-  ctx.textAlign='center';ctx.font='bold 22px Arial';ctx.lineWidth=3;ctx.strokeStyle='#fff';ctx.strokeText(p.label,x,y);ctx.fillStyle=p.label==='H'?'#1b55bd':'#b3283d';ctx.fillText(p.label,x,y);ctx.font='bold 11px Arial';ctx.strokeText(Math.round(p.value),x,y+13);ctx.fillText(Math.round(p.value),x,y+13);
- }
- ctx.restore();
-}
 // Plot exactly one pixel per published grid cell, scaled with nearest-neighbour.
 // Geographic cell edges remain fixed when the map is panned or zoomed.
 function drawModelCells(ctx,b,p){
- const d=realData(),native=p.id==='temp2'?matchingNativeMap():null;
- if(p.id==='temp2'&&!native){ctx.fillStyle='#5f6e7d';ctx.fillRect(0,0,b.w,b.h);return;}
+ const d=realData(),native=!d?.nativeMap&&p.id==='temp2'?matchingNativeMap():null;
+ if(d?.nativeMap?!nativeFieldsReady(d,p,mapHour):!native){ctx.fillStyle='#5f6e7d';ctx.fillRect(0,0,b.w,b.h);return;}
  if(!d)return;const g=native?native.meta.grid:d.grid,dx=g.dx??g.step,dy=g.dy??g.step;
  const x0=Math.max(0,Math.floor((b.west-g.west)/dx+.5)),x1=Math.min(g.nx-1,Math.ceil((b.east-g.west)/dx+.5));
  const y0=Math.max(0,Math.floor((b.south-g.south)/dy+.5)),y1=Math.min(g.ny-1,Math.ceil((b.north-g.south)/dy+.5));
@@ -2354,7 +2408,7 @@ function drawMap(fast=false){
  if(mapSource==='live'&&terrainMode!=='topo'){
   drawLiveBase(ctx,b);
  }else if(terrainMode!=='topo'&&modelDataMode==='real'){
-  if(mapLayer==='temp2')fetchNativeMapTemperature();drawModelCells(ctx,b,p);
+  fetchNativeMapModel(mapModel);const d=realData();if(d?.nativeMap)fetchNativeMapFields(d,p,mapHour);else if(mapLayer==='temp2')fetchNativeMapTemperature();drawModelCells(ctx,b,p);
  }else if(terrainMode!=='topo'){
   const bw=Math.round(b.w/(fast?7:3.5)),bh=Math.round(b.h/(fast?7:3.5));
   mapBuffer.width=bw;mapBuffer.height=bh;const buf=mapBuffer.getContext('2d');const img=buf.createImageData(bw,bh);
@@ -2365,7 +2419,7 @@ function drawMap(fast=false){
  if(liveContinuous)drawLiveField(ctx,b,fast);
  drawTerrain(ctx,b,fast);
  if(mapSource==='live'&&terrainMode!=='topo'){if(!liveContinuous)drawLiveField(ctx,b,fast);drawLiveSymbols(ctx,b);if(liveLayer==='wind')drawLiveWindArrows(ctx,b)}
- drawGeography(ctx,b);drawOnlineMap(ctx,b,fast);drawBasemap(ctx,b);drawMapPlaces(ctx,b);drawRealPressure(ctx,b,fast);
+ drawGeography(ctx,b);drawOnlineMap(ctx,b,fast);drawBasemap(ctx,b);drawMapPlaces(ctx,b);
  if(mapSource==='live'&&terrainMode!=='topo'&&typeof realLiveEnabled!=='undefined'&&realLiveEnabled)drawRealStations(ctx,b);
  if(mapSource==='live'&&terrainMode!=='topo')drawLiveStrikes(ctx,b);
  if(mapPoint){const [x,y]=xy(...mapPoint,b);if(x>=0&&x<=b.w&&y>=0&&y<=b.h){ctx.beginPath();ctx.arc(x,y,8,0,Math.PI*2);ctx.lineWidth=3;ctx.strokeStyle='#fff';ctx.stroke();ctx.lineWidth=1;ctx.strokeStyle='#192735';ctx.stroke()}}
@@ -2410,7 +2464,7 @@ const timeText=d=>d.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',ti
 function minHour(){const step=effectiveModel().step;return modelDataMode==='real'&&mapLayer==='rainrate'?step:Math.ceil(fields[mapLayer].interval/step)*step}
 function mapLabels(){
  const p=fields[mapLayer],status=modelStatus();el('map-layer-title').textContent=terrainMode==='topo'?'Topografie · Geländehöhe':p.label;el('map-model-badge').textContent=terrainMode==='topo'?'Relief':mapModel;el('map-overlay-model').textContent=terrainMode==='topo'?'TOPO':mapModel;
- el('map-overlay-data').textContent=terrainMode==='topo'?'GELÄNDE':mapSource==='live'||modelDataMode==='demo'?'DEMO':mapLayer==='temp2'?(matchingNativeMap()?'ORIGINALRASTER':'ORIGINALDATEN AUSSTEHEND'):realData()&&realModelSupported(p,effectiveModel().step,effectiveModel().max)?modelProvider(mapModel)+' · REDUZIERT':'KEINE DATEN';
+ el('map-overlay-data').textContent=terrainMode==='topo'?'GELÄNDE':mapSource==='live'||modelDataMode==='demo'?'DEMO':(realData()?.nativeMap?nativeFieldsReady(realData(),p,mapHour):mapLayer==='temp2'&&matchingNativeMap())?'ORIGINALRASTER':'ORIGINALDATEN AUSSTEHEND';
  el('map-weather-controls').hidden=terrainMode==='topo';el('map-time-controls').hidden=terrainMode==='topo';el('map-run-info').hidden=terrainMode==='topo';
  el('map-live-controls').hidden=mapSource!=='live'||terrainMode==='topo';
  el('map-data-notice').textContent=mapSource==='live'?'Demo · keine Messdaten':status.label;
@@ -2460,7 +2514,7 @@ function renderMap(){
  if(data&&!available.some(p=>p.id===mapLayer)&&available.length)mapLayer=available[0].id;
  parameterSelect.disabled=modelDataMode==='real'&&!data;
  parameterSelect.innerHTML=groups.map(g=>'<optgroup label="'+g+'">'+available.filter(p=>p.group===g).map(p=>'<option value="'+p.id+'" '+(p.id===mapLayer?'selected':'')+'>'+p.label+'</option>').join('')+'</optgroup>').join('');
- const run=el('map-run'),date=modelRunDate(),runs=modelRuns(mapModel);run.disabled=modelDataMode==='real'&&runs.length<2;el('map-run-label').textContent=modelDataMode==='real'?'Modelllauf ('+modelProvider(mapModel)+')':'Modelllauf (Demo)';
+ const run=el('map-run'),date=modelRunDate(),runs=mapModelRuns(mapModel);run.disabled=modelDataMode==='real'&&runs.length<2;el('map-run-label').textContent=modelDataMode==='real'?'Modelllauf ('+modelProvider(mapModel)+')':'Modelllauf (Demo)';
  run.innerHTML=modelDataMode==='real'?'<option value="auto">'+(runs.length?'Aktuell · '+timeText(new Date(runs[0].run)):'Modell wird geladen …')+'</option>'+runs.map(d=>'<option value="'+Date.parse(d.run)+'" '+(Date.parse(d.run)===selectedMapRun?'selected':'')+'>'+timeText(new Date(d.run))+' (+'+d.hours.at(-1)+' h)</option>').join(''):[0,6,12].map(h=>'<option value="'+h+'" '+(mapRun===h?'selected':'')+'>15.11. · '+String(h).padStart(2,'0')+' UTC</option>').join('');
  el('map-data-mode').value=modelDataMode;el('map-data-refresh').hidden=modelDataMode!=='real';
  const time=el('map-time');if(mapSource==='live'){syncLiveTimeControls()}

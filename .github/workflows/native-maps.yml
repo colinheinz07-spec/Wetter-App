@@ -1,0 +1,76 @@
+name: Original-resolution model maps
+on:
+  workflow_dispatch:
+  pull_request:
+    paths: ['.github/workflows/native-maps.yml','scripts/ingest-native-maps.py','scripts/ingest-icon.py','scripts/ingest-gfs.py','scripts/ingest-ifs.py']
+  schedule:
+    - cron: '25 1,7,13,19 * * *'
+  push:
+    branches: [main]
+    paths: ['.github/workflows/native-maps.yml','scripts/ingest-native-maps.py','scripts/ingest-icon.py','scripts/ingest-gfs.py','scripts/ingest-ifs.py']
+permissions:
+  contents: write
+concurrency:
+  group: original-model-maps-${{ github.event_name }}
+  cancel-in-progress: false
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    strategy:
+      fail-fast: false
+      matrix:
+        model: [icon-d2, icon-eu, ifs, ifs-short, aifs, aifs-ens-control, gfs]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install 'eccodes>=2.42' numpy
+      - name: Prepare disposable generated-data branch
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MODEL: ${{ matrix.model }}
+        run: |
+          gh auth setup-git
+          dir="$RUNNER_TEMP/native-maps"
+          mkdir -p "$dir"
+          git -C "$dir" init
+          git -C "$dir" remote add origin "https://github.com/${{ github.repository }}.git"
+          ref="refs/heads/generated-native-$MODEL"
+          old=$(git -C "$dir" ls-remote origin "$ref" | cut -f1)
+          if [ -n "$old" ]; then
+            # Only replace our own generated, parentless snapshots; never user commits.
+            git -C "$dir" fetch --depth=1 --filter=blob:none origin "$ref"
+            test "$(git -C "$dir" show -s --format=%s FETCH_HEAD)" = "Generated native map snapshot $MODEL"
+            test "$(git -C "$dir" show -s --format=%ae FETCH_HEAD)" = "41898282+github-actions[bot]@users.noreply.github.com"
+            test -z "$(git -C "$dir" cat-file -p FETCH_HEAD | sed -n '/^parent /p')"
+          fi
+          printf '%s\n' "$old" > "$RUNNER_TEMP/native-old"
+      - name: Import source-resolution weather fields
+        run: |
+          if [ '${{ github.event_name }}' = 'pull_request' ]; then
+            python scripts/ingest-native-maps.py --model '${{ matrix.model }}' --output "$RUNNER_TEMP/native-maps" --max-steps 2
+          else
+            python scripts/ingest-native-maps.py --model '${{ matrix.model }}' --output "$RUNNER_TEMP/native-maps"
+          fi
+      - name: Publish complete rolling data snapshot
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MODEL: ${{ matrix.model }}
+        run: |
+          dir="$RUNNER_TEMP/native-maps"
+          ref="refs/heads/generated-native-$MODEL"
+          old=$(< "$RUNNER_TEMP/native-old")
+          # Never approach GitHub's 2 GB push limit or put model data on main.
+          test "$(du -sb "$dir" | cut -f1)" -lt 1500000000
+          git -C "$dir" config user.name 'github-actions[bot]'
+          git -C "$dir" config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git -C "$dir" add -- '*.json.gz' index.json
+          git -C "$dir" commit -m "Generated native map snapshot $MODEL"
+          git -C "$dir" push --force-with-lease="$ref:$old" origin "HEAD:$ref"
