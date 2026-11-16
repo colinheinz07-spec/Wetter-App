@@ -50,6 +50,22 @@ console.log('Whole-degree temperatures, exact WW, IFS precipitation type and sam
 console.log('Existing ICON grids, IFS schema, model transitions, precipitation and missing fields: OK');
 vm.runInContext(`const midnight=utcDayStart(Date.parse(run)),hourlyRun=new Date(midnight).toISOString(),nativeHours=Array.from({length:49},(_,i)=>i),native={...ifs,model:'ICON-D2',run:hourlyRun,generated:hourlyRun,hours:nativeHours,frames:Object.fromEntries(nativeHours.map(h=>[h,{...ifs.frames[0],temp2:packed(h*10),rainTotal:packed(h*2),ww:packed(61)}]))};hourlyModelCache.set('ICON-D2',[validateRealData(native,'ICON-D2')]);`,context);
 assert.equal(vm.runInContext(`forecastDay(point,midnight,midnight).periods[0].mean`,context),3);
+// A cloud-only WW code cannot override a positive accumulated precipitation total.
+vm.runInContext(`const cloudy={...native,run:hourlyRun,frames:{...native.frames,6:{...native.frames[6],ww:packed(3)}}};const cloudyFrame=sample(cloudy,6);cloudyFrame.time=midnight+6*HOUR_MS;const interval=(frame,amount,hours=6)=>({frame,amount,hours,start:frame.time-hours*HOUR_MS,end:frame.time});`,context);
+assert.equal(vm.runInContext(`forecastIcon([interval(cloudyFrame,3.7)],3.7,6,100).icon`,context),'12_regen_2');
+assert.equal(vm.runInContext(`forecastIcon([interval(cloudyFrame,8)],8,6,100).icon`,context),'13_regen_3');
+assert.equal(vm.runInContext(`forecastIcon([interval(cloudyFrame,20)],20,24,100).icon`,context),'14_regen_4');
+assert.equal(vm.runInContext(`forecastIcon([interval(cloudyFrame,0)],0,6,100).icon`,context),'06_bedeckt');
+assert.equal(vm.runInContext(`forecastIcon([interval(sample(wwTest,6),5)],5,6,100).icon`,context),'22_schnee_3');
+assert.equal(vm.runInContext(`forecastIcon([interval(sample(wwTest,12),1)],1,6,100).icon`,context),'35_gewitterregen');
+assert.equal(vm.runInContext(`warningLevel(25,shortRainLimits[1])`,context),2);
+assert.equal(vm.runInContext(`warningLevel(90,shortRainLimits[1])`,context),4);
+assert.equal(vm.runInContext(`warningLevel(90.1,shortRainLimits[1])`,context),5);
+assert.equal(vm.runInContext(`localWarnings([{intervals:[interval(cloudyFrame,40)]}],midnight,300).find(w=>w.type==='Starkregen').level`,context),2);
+assert.ok(vm.runInContext(`!localWarnings([{intervals:[interval(cloudyFrame,40)]}],midnight,300).some(w=>w.type==='Starkregen'&&w.period===1)`,context));
+assert.ok(vm.runInContext(`!localWarnings([{intervals:[interval(sample(wwTest,6),80)]}],Date.parse(run),300).some(w=>w.type==='Starkregen')`,context));
+assert.ok(vm.runInContext(`!localWarnings([{intervals:[interval(cloudyFrame,40)]}],midnight+6*HOUR_MS,300).some(w=>w.type==='Starkregen')`,context));
+console.log('Summary icons use same accumulated precipitation; warning thresholds and exact valid intervals: OK');
 assert.equal(vm.runInContext(`currentGridFrame(point,midnight+5.5*HOUR_MS).time`,context),vm.runInContext(`midnight+5*HOUR_MS`,context));
 assert.equal(vm.runInContext(`frameVal(currentGridFrame(point,midnight+5.5*HOUR_MS),'temp2')`,context),5);
 const radarBytes=Buffer.alloc(8);[0,25,-32768,100].forEach((v,i)=>radarBytes.writeInt16LE(v,2*i));
