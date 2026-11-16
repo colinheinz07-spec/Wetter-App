@@ -5,7 +5,7 @@ on:
     - cron: '40 2,5,8,11,14,17,20,23 * * *'
   push:
     branches: [main]
-    paths: ['.github/workflows/icon-data.yml', 'scripts/ingest-icon.py']
+    paths: ['.github/workflows/icon-data.yml', 'scripts/ingest-icon.py', 'scripts/native-temperature.py', 'scripts/ingest-icon-temperature.py']
 permissions:
   contents: write
 concurrency:
@@ -14,7 +14,7 @@ concurrency:
 jobs:
   import:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
@@ -35,5 +35,14 @@ jobs:
           git add data/${{ matrix.model }}.json data/${{ matrix.model }}.json.gz data/${{ matrix.model }}.meta.json
           if git diff --cached --quiet; then exit 0; fi
           git commit -m "Update DWD model data"
+          git pull --rebase origin main
+          git push origin HEAD:main || (git pull --rebase origin main && git push origin HEAD:main)
+      - name: Import original-grid temperature fields
+        run: /usr/bin/python3 scripts/ingest-icon-temperature.py --model ${{ matrix.model }} --map
+      - name: Publish original-grid temperature fields
+        run: |
+          git add data/${{ matrix.model }}-map-temperature
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'Refresh original-grid ${{ matrix.model }} temperature'
           git pull --rebase origin main
           git push origin HEAD:main || (git pull --rebase origin main && git push origin HEAD:main)

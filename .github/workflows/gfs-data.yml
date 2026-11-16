@@ -5,7 +5,7 @@ on:
     - cron: '05 4,10,16,22 * * *'
   push:
     branches: [main]
-    paths: ['.github/workflows/gfs-data.yml', 'scripts/ingest-gfs.py']
+    paths: ['.github/workflows/gfs-data.yml', 'scripts/ingest-gfs.py', 'scripts/native-temperature.py', 'scripts/ingest-global-temperature.py']
 permissions:
   contents: write
 concurrency:
@@ -14,7 +14,7 @@ concurrency:
 jobs:
   import:
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - run: sudo apt-get update && sudo apt-get install -y python3-eccodes python3-numpy
@@ -27,5 +27,14 @@ jobs:
           git add data/gfs.json data/gfs.json.gz data/gfs.meta.json
           if git diff --cached --quiet; then exit 0; fi
           git commit -m 'Update NOAA GFS forecast'
+          git pull --rebase origin main
+          git push origin HEAD:main || (git pull --rebase origin main && git push origin HEAD:main)
+      - name: Import original-grid temperature fields
+        run: /usr/bin/python3 scripts/ingest-global-temperature.py --model gfs
+      - name: Publish original-grid temperature fields
+        run: |
+          git add data/gfs-temperature
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'Refresh original-grid gfs temperature'
           git pull --rebase origin main
           git push origin HEAD:main || (git pull --rebase origin main && git push origin HEAD:main)
