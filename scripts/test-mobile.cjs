@@ -14,6 +14,8 @@ const packed=n=>{const b=Buffer.alloc(8);for(let i=0;i<4;i++)b.writeInt16LE(n,i*
 const hours=Array.from({length:49},(_,i)=>i);
 const hourlyFixture={schema:1,runs:[{schema:1,model:'ICON-D2',run:midnight,generated:midnight,grid:{west:13,south:52,step:1,nx:2,ny:2,scale:.1,missing:-32768},hours,frames:Object.fromEntries(hours.map(h=>[h,{temp2:packed(100+h),dew:packed(60),wind:packed(140),slp:packed(10100),cloud:packed(750),rainTotal:packed(h*2),ww:packed(61)}]))}]};
 const snapshotTime=new Date(Math.floor((fixedTime.getTime()-10*60000)/300000)*300000);
+stations.stations.push({id:'test-station',name:'Teststation',lon:13.4,lat:52.52,time:fixedTime.toISOString(),temp:39});
+const radarFixture={schema:1,product:'RY',time:snapshotTime.toISOString(),intervalMinutes:5,grid:{west:13,south:52,step:1,nx:2,ny:2,scale:.01,missing:-32768},amount:packed(25)};
 stations.radarBase=snapshotTime.toISOString();
 stations.radarImage={time:snapshotTime.toISOString(),bounds:[2,45,18,57],png:'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jR1sAAAAASUVORK5CYII='};
 const server=http.createServer((req,res)=>{
@@ -36,6 +38,7 @@ const server=http.createServer((req,res)=>{
   await page.route('**/*',route=>{
    const u=route.request().url();
    if(u.endsWith('/data/stations.json'))return route.fulfill({json:stations});
+   if(new URL(u).pathname.endsWith('/data/radar-points.json.gz'))return route.fulfill({json:radarFixture});
    if(u.endsWith('/data/icon-d2-hourly.json.gz'))return route.fulfill({json:hourlyFixture});
    if(u.endsWith('/data/live-imagery.json'))return route.fulfill({json:{schema:1,products:{reflectivity:{...stations.radarImage,source:'DWD DMAX'},satellite:{...stations.radarImage,source:'EUMETSAT / NASA'}}}});
    if(u.startsWith(url))return route.continue();
@@ -43,6 +46,9 @@ const server=http.createServer((req,res)=>{
   });
   await page.goto(url+'/index.html');
   await page.waitForFunction(()=>document.querySelectorAll('.real-day').length===7&&[...document.querySelectorAll('.real-day')].some(x=>x.innerText.includes('IFS'))&&document.querySelectorAll('.hour img').length===24,{},{timeout:45000});
+  await page.waitForFunction(()=>document.querySelector('.hero .condition')?.textContent.includes('3 mm/h'));
+  assert.ok(!(await page.locator('.hero .temp').innerText()).includes('39°'));
+  assert.match(await page.locator('.hero .hero-head').innerText(),/Ortsraster/);
   const rows=await page.locator('.real-day').allTextContents();
   assert.equal(rows.length,7);assert.ok(rows.every(x=>!x.includes('Keine Daten')),rows.join('\n'));
   assert.ok(rows[0].includes('Heute')&&!rows[0].includes('Keine Daten'));

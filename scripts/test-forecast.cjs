@@ -50,6 +50,17 @@ console.log('Whole-degree temperatures, exact WW, IFS precipitation type and sam
 console.log('Existing ICON grids, IFS schema, model transitions, precipitation and missing fields: OK');
 vm.runInContext(`const midnight=utcDayStart(Date.parse(run)),hourlyRun=new Date(midnight).toISOString(),nativeHours=Array.from({length:49},(_,i)=>i),native={...ifs,model:'ICON-D2',run:hourlyRun,generated:hourlyRun,hours:nativeHours,frames:Object.fromEntries(nativeHours.map(h=>[h,{...ifs.frames[0],temp2:packed(h*10),rainTotal:packed(h*2),ww:packed(61)}]))};hourlyModelCache.set('ICON-D2',[validateRealData(native,'ICON-D2')]);`,context);
 assert.equal(vm.runInContext(`forecastDay(point,midnight,midnight).periods[0].mean`,context),3);
+assert.equal(vm.runInContext(`currentGridFrame(point,midnight+5.5*HOUR_MS).time`,context),vm.runInContext(`midnight+5*HOUR_MS`,context));
+assert.equal(vm.runInContext(`frameVal(currentGridFrame(point,midnight+5.5*HOUR_MS),'temp2')`,context),5);
+const radarBytes=Buffer.alloc(8);[0,25,-32768,100].forEach((v,i)=>radarBytes.writeInt16LE(v,2*i));
+Object.assign(context,{radarPacket:{schema:1,product:'RY',time:run,intervalMinutes:5,grid:{west:7,south:50,step:1,nx:2,ny:2,scale:.01,missing:-32768},amount:radarBytes.toString('base64')}});
+vm.runInContext(`const radarTest=decodeRadarPoints(radarPacket),radarNow=Date.parse(run)+60000`,context);
+assert.equal(vm.runInContext(`radarGridAt(radarTest,[7,50],radarNow).rate`,context),0);
+assert.equal(vm.runInContext(`radarGridAt(radarTest,[8,50],radarNow).rate`,context),3);
+assert.equal(vm.runInContext(`radarGridAt(radarTest,[7,51],radarNow)`,context),null);
+assert.equal(vm.runInContext(`radarGridAt(radarTest,[9,50],radarNow)`,context),null);
+assert.equal(vm.runInContext(`radarGridAt(radarTest,[8,50],radarNow+21*60000)`,context),null);
+console.log('Current grid never uses future hours; radar distinguishes dry, wet, missing and stale cells: OK');
 assert.ok(Math.abs(vm.runInContext(`forecastDay(point,midnight,midnight).rain`,context)-4.8)<1e-8);
 assert.ok(vm.runInContext(`const day=forecastDay(point,midnight,midnight),h24=hourlyForecast([day],midnight);Math.abs(h24.reduce((s,h)=>s+h.rain,0)-day.rain)<1e-8 && h24.every(h=>h.step===1 && h.frame)`,context));
 assert.equal(vm.runInContext(`intervalLabel(midnight+18*HOUR_MS,midnight+DAY_MS)`,context),'18–00');
