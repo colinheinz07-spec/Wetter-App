@@ -16,6 +16,10 @@ const packed=n=>{const b=Buffer.alloc(8);for(let i=0;i<4;i++)b.writeInt16LE(n,i*
 const hours=Array.from({length:49},(_,i)=>i);
 const fixture=run=>({schema:1,model:'ICON-D2',run,generated:run,grid:{west:13,south:52,step:1,nx:2,ny:2,scale:.1,missing:-32768},hours,frames:Object.fromEntries(hours.map(h=>[h,{temp2:packed(100+h),dew:packed(60),wind:packed(140),gust:packed(760),slp:packed(10100),cloud:packed(750),rainTotal:packed(h*2),ww:packed(3)}]))});
 const hourlyFixture={schema:1,runs:[...new Set([latest,anchor])].sort().reverse().map(fixture)};
+const temperatureMeta=run=>({schema:1,model:'ICON-D2',run,generated:run,hours,mapHours:hours,tileSize:2,grid:{west:13,south:52,dx:1,dy:1,nx:2,ny:2,scale:.1,missing:-32768}});
+const temperatureTile=run=>({schema:1,run,generated:run,key:'0-0',frames:Object.fromEntries(hours.map(h=>[h,{temp2:packed(100+h)}]))});
+const mapKeys=['temp2','dew','wind','slp','cloud','rainTotal','mlcape'];
+const mapFixture={schema:2,model:'ICON-D2',run:latest,generated:latest,hours:[0,3,6],grid:{west:13,south:52,step:.02,nx:2,ny:2,scale:.1,missing:-32768},frames:Object.fromEntries([0,3,6].map(h=>[h,mapKeys])),scales:Object.fromEntries(mapKeys.map(k=>[k,k==='mlcape'?1:.1]))};
 const snapshotTime=new Date(Math.floor((fixedTime.getTime()-10*60000)/300000)*300000);
 stations.stations.push({id:'test-station',name:'Teststation',lon:13.4,lat:52.52,time:fixedTime.toISOString(),temp:39});
 const radarFixture={schema:1,product:'RY',time:snapshotTime.toISOString(),intervalMinutes:5,grid:{west:13,south:52,step:1,nx:2,ny:2,scale:.01,missing:-32768},amount:packed(25)};
@@ -40,6 +44,15 @@ const server=http.createServer((req,res)=>{
   await page.clock.setFixedTime(fixedTime);
   await page.route('**/*',route=>{
    const u=route.request().url();
+   const pathname=new URL(u).pathname;
+   // Native fixtures must match the hourly fixtures; published live tiles
+   // otherwise make forecast selection nondeterministic during model updates.
+   const tile=pathname.match(/\/data\/icon-d2-(anchor-)?temperature\/(index\.json|0-0\.json\.gz)$/);
+   if(tile){const run=tile[1]?anchor:latest;return route.fulfill({json:tile[2]==='index.json'?temperatureMeta(run):temperatureTile(run)})}
+   if(/\/data\/[^/]+-temperature\//.test(pathname))return route.fulfill({status:404});
+   if(pathname.endsWith('/generated-native-icon-d2/index.json'))return route.fulfill({headers:{'access-control-allow-origin':'*'},json:mapFixture});
+   const map=pathname.match(/\/generated-native-icon-d2\/(\d+)-(\w+)\.json\.gz$/);
+   if(map)return route.fulfill({headers:{'access-control-allow-origin':'*'},json:{schema:2,run:latest,generated:latest,hour:Number(map[1]),field:map[2],values:packed(map[2]==='mlcape'?750:100)}});
    if(u.endsWith('/data/stations.json'))return route.fulfill({json:stations});
    if(new URL(u).pathname.endsWith('/data/radar-points.json.gz'))return route.fulfill({json:radarFixture});
    if(new URL(u).pathname.endsWith('/data/icon-d2-hourly.json.gz'))return route.fulfill({json:hourlyFixture});
@@ -52,6 +65,8 @@ const server=http.createServer((req,res)=>{
   await page.goto(url+'/index.html');
   await page.waitForFunction(()=>document.querySelectorAll('.real-day').length===7&&[...document.querySelectorAll('.real-day')].some(x=>x.innerText.includes('IFS'))&&document.querySelectorAll('.hour img').length===24,{},{timeout:45000});
   await page.waitForFunction(()=>document.querySelector('.hero .condition')?.textContent.includes('3 mm/h'));
+  await page.waitForFunction(()=>[...document.querySelectorAll('.hour .rain')].length===24&&[...document.querySelectorAll('.hour .rain')].every(x=>x.textContent==='0,2 mm'));
+  await page.waitForFunction(()=>document.querySelector('.night-summary')?.textContent.includes('Originalraster'));
   assert.ok(!(await page.locator('.hero .temp').innerText()).includes('39°'));
   assert.match(await page.locator('.hero .hero-head').innerText(),/Ortsraster/);
   const rows=await page.locator('.real-day').allTextContents();
@@ -95,6 +110,9 @@ const server=http.createServer((req,res)=>{
   await page.waitForFunction(()=>document.querySelector('#map-run').selectedOptions[0]?.textContent.includes('UTC'));
   assert.ok(!(await page.locator('#map-parameter').innerText()).includes('keine Realdaten'));
   assert.equal(await page.locator('#map-parameter').isEnabled(),true);
+  await page.waitForFunction(()=>document.querySelector('#map-parameter option[value="mlcape"]'));
+  await page.locator('#map-parameter').selectOption('mlcape');
+  await page.waitForFunction(()=>document.querySelector('#map-overlay-data').textContent==='ORIGINALRASTER');
   await page.locator('[data-map-source="live"]').click();
   await page.locator('#map-live-layer').selectOption('reflectivity');
   await page.waitForFunction(()=>document.querySelector('#map-data-notice').textContent==='Beobachtung');
