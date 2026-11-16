@@ -53,7 +53,7 @@ assert.ok(Math.abs(vm.runInContext(`realModelValue(indexFixture,{id:'tt'},...poi
 assert.ok(Math.abs(vm.runInContext(`realModelValue(indexFixture,{id:'ki'},...point,6)`,context)-30)<1e-6);
 assert.ok(Number.isNaN(vm.runInContext(`realModelValue(ifs,{id:'tt'},...point,6)`,context)));
 console.log('AIFS and ENS control, extended lead times, optional field integrity and derived indices: OK');
-vm.runInContext(chunk('function pressureExtrema(','function drawRealPressure('),context);
+vm.runInContext(chunk('function pressureExtrema(','// Plot exactly one pixel'),context);
 assert.equal(vm.runInContext(`pressureExtrema(Array.from({length:25},(_,i)=>1000-Math.hypot(i%5-2,Math.floor(i/5)-2)*2),{nx:5,ny:5},1)[0].label`,context),'H');
 console.log('Whole-degree temperatures, exact WW, IFS precipitation type and same-run supplemental fields: OK');
 console.log('Existing ICON grids, IFS schema, model transitions, precipitation and missing fields: OK');
