@@ -53,7 +53,7 @@ assert.ok(Math.abs(vm.runInContext(`realModelValue(indexFixture,{id:'tt'},...poi
 assert.ok(Math.abs(vm.runInContext(`realModelValue(indexFixture,{id:'ki'},...point,6)`,context)-30)<1e-6);
 assert.ok(Number.isNaN(vm.runInContext(`realModelValue(ifs,{id:'tt'},...point,6)`,context)));
 console.log('AIFS and ENS control, extended lead times, optional field integrity and derived indices: OK');
-vm.runInContext(chunk('function pressureExtrema(','function drawRealPressure('),context);
+vm.runInContext(chunk('function pressureExtrema(','// Plot exactly one pixel'),context);
 assert.equal(vm.runInContext(`pressureExtrema(Array.from({length:25},(_,i)=>1000-Math.hypot(i%5-2,Math.floor(i/5)-2)*2),{nx:5,ny:5},1)[0].label`,context),'H');
 console.log('Whole-degree temperatures, exact WW, IFS precipitation type and same-run supplemental fields: OK');
 console.log('Existing ICON grids, IFS schema, model transitions, precipitation and missing fields: OK');
@@ -172,3 +172,17 @@ if(fs.existsSync('data/ifs.json')){
  assert.equal(vm.runInContext(`nativeMapTemperatureValue({meta:{grid:{west:7.8,south:50.5,dx:.02,dy:.02,nx:2,ny:2,scale:.1,missing:-32768}},values:new Int16Array([30,60,90,-32768])},7.8,50.5)`,context),3);
  assert.ok(Number.isNaN(vm.runInContext(`nativeMapTemperatureValue(null,7.8,50.5)`,context)));
  console.log('Original temperature map cells: exact, distinct, no missing-data substitution');
+
+const mapKeys=['temp2','dew','wind','slp','cloud','rainTotal','mlcape','u850','v850'];
+const fullNativeMap={schema:2,model:'ICON-D2',run,generated:run,grid:{west:7.8,south:50.5,step:.02,nx:2,ny:2,scale:.1,missing:-32768},hours:[0,3],frames:{0:mapKeys,3:mapKeys},scales:Object.fromEntries(mapKeys.map(k=>[k,k==='mlcape'?1:.1]))};
+Object.assign(context,{fullNativeMap});
+vm.runInContext(`const nm=validateNativeMapManifest(fullNativeMap,'ICON-D2','icon-d2');nm.decoded.set('3/mlcape',new Int16Array([50,700,1100,-32768]));nm.decoded.set('0/rainTotal',new Int16Array([2,5,12,0]));nm.decoded.set('3/rainTotal',new Int16Array([12,45,32,0]));nm.decoded.set('3/u850',new Int16Array([30,0,0,0]));nm.decoded.set('3/v850',new Int16Array([40,0,0,0]));`,context);
+assert.equal(vm.runInContext(`realModelValue(nm,{id:'mlcape'},7.8,50.5,3)`,context),50);
+assert.equal(vm.runInContext(`realModelValue(nm,{id:'mlcape'},7.82,50.5,3)`,context),700);
+assert.ok(Number.isNaN(vm.runInContext(`realModelValue(nm,{id:'mlcape'},7.82,50.52,3)`,context)));
+assert.equal(vm.runInContext(`realModelValue(nm,{id:'rain3',interval:3},7.82,50.5,3)`,context),4);
+assert.equal(vm.runInContext(`realModelValue(nm,{id:'windp850'},7.8,50.5,3)`,context),5);
+assert.ok(vm.runInContext(`nativeFieldsReady(nm,{id:'rain3',interval:3},3)&&!nativeFieldsReady(nm,{id:'rain1',interval:1},3)`,context));
+assert.ok(!vm.runInContext(`nativeFieldsReady(nm,{id:'cloud'},3)`,context));
+assert.throws(()=>vm.runInContext(`validateNativeMapManifest({...fullNativeMap,scales:{}},'ICON-D2','icon-d2')`,context));
+console.log('Original map: CAPE, wind and precipitation preserve distinct native cells; missing fields stay missing');

@@ -20,7 +20,7 @@ jobs:
       - run: node scripts/test-forecast.cjs
       - run: python3 -m pip install numpy --break-system-packages
       - run: python3 scripts/test-native-temperature.py
-      - run: python3 -m py_compile scripts/ingest-icon-temperature.py scripts/ingest-global-temperature.py scripts/native-temperature.py
+      - run: python3 -m py_compile scripts/ingest-icon-temperature.py scripts/ingest-global-temperature.py scripts/native-temperature.py scripts/ingest-native-maps.py scripts/ingest-icon.py scripts/ingest-gfs.py scripts/ingest-ifs.py
       - run: python3 scripts/audit-models.py
       - run: npm install --no-save playwright
       - run: npx playwright install --with-deps chromium

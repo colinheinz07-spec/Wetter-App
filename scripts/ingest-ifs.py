@@ -22,6 +22,7 @@ PRODUCTS = {'ifs': ('ifs', 'oper', 'fc', 'IFS'),
             'aifs': ('aifs-single', 'oper', 'fc', 'AIFS'),
             'aifs-ens-control': ('aifs-ens', 'enfo', 'cf', 'AIFS-ENS Control')}
 PRODUCT = 'ifs'
+NATIVE_STEP = None
 GRID = dict(west=-25., south=34., step=.5, nx=135, ny=75, scale=.1, missing=-32768)
 X = GRID['west'] + np.arange(GRID['nx'])*GRID['step']
 Y = GRID['south'] + np.arange(GRID['ny'])*GRID['step']
@@ -98,7 +99,7 @@ def choose_run(short=False,hours=HOURS):
 
 def sample(row, spec, run, hour):
     key, factor, shift = spec
-    blob=get(file_base(run,hour)+'.grib2',int(row['_offset']),int(row['_length']))
+    blob=get(row.get('_base',file_base(run,hour))+'.grib2',int(row['_offset']),int(row['_length']))
     gid=ec.codes_new_from_message(blob)
     try:
         if ec.codes_get(gid,'gridType')!='regular_ll':
@@ -118,6 +119,11 @@ def sample(row, spec, run, hour):
         dy=ec.codes_get_double(gid,'jDirectionIncrementInDegrees')
         xi=np.rint(((X-lon0) if not ec.codes_get_long(gid,'iScansNegatively') else (lon0-X))%360/dx).astype(int)%ni
         yi=np.rint((Y-lat0)/dy*(1 if ec.codes_get_long(gid,'jScansPositively') else -1)).astype(int)
+        if NATIVE_STEP is not None:
+            if not np.isclose(dx,NATIVE_STEP,rtol=0,atol=1e-6) or not np.isclose(dy,NATIVE_STEP,rtol=0,atol=1e-6):raise ValueError('Unexpected native ECMWF spacing')
+            xx=(lon0+(-1 if ec.codes_get_long(gid,'iScansNegatively') else 1)*xi*dx+180)%360-180
+            yy=lat0+(1 if ec.codes_get_long(gid,'jScansPositively') else -1)*yi*dy
+            if not np.allclose(xx,X,rtol=0,atol=1e-6) or not np.allclose(yy,Y,rtol=0,atol=1e-6):raise ValueError('ECMWF native grid not aligned')
         if (yi<0).any() or (yi>=nj).any():raise ValueError('Grid coverage missing')
         grid=values.reshape(ni,nj).T if ec.codes_get_long(gid,'jPointsAreConsecutive') else values.reshape(nj,ni)
         out=grid[np.ix_(yi,xi)].astype(float)

@@ -20,6 +20,7 @@ ROOT = 'https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25.pl'
 BUCKET = 'https://noaa-gfs-bdp-pds.s3.amazonaws.com'
 HOURS = list(range(0, 241, 6))
 GRID = dict(west=-25., south=34., step=.5, nx=135, ny=75, scale=.1, missing=-32768)
+NATIVE_STEP = None
 X = GRID['west'] + np.arange(GRID['nx'])*GRID['step']
 Y = GRID['south'] + np.arange(GRID['ny'])*GRID['step']
 pack = runpy.run_path(str(Path(__file__).with_name('ingest-icon.py')))['pack']
@@ -93,6 +94,11 @@ def sample(gid):
     dx=ec.codes_get_double(gid,'iDirectionIncrementInDegrees');dy=ec.codes_get_double(gid,'jDirectionIncrementInDegrees')
     xi=np.rint((((lon0-X) if ec.codes_get_long(gid,'iScansNegatively') else (X-lon0))%360)/dx).astype(int)
     yi=np.rint((Y-lat0)/dy*(1 if ec.codes_get_long(gid,'jScansPositively') else -1)).astype(int)
+    if NATIVE_STEP is not None:
+        if not np.isclose(dx,NATIVE_STEP,rtol=0,atol=1e-6) or not np.isclose(dy,NATIVE_STEP,rtol=0,atol=1e-6):raise ValueError('Unexpected native GFS spacing')
+        xx=(lon0+(-1 if ec.codes_get_long(gid,'iScansNegatively') else 1)*xi*dx+180)%360-180
+        yy=lat0+(1 if ec.codes_get_long(gid,'jScansPositively') else -1)*yi*dy
+        if not np.allclose(xx,X,atol=1e-6,rtol=0) or not np.allclose(yy,Y,atol=1e-6,rtol=0):raise ValueError('GFS native grid not aligned')
     if (xi>=ni).any() or (yi<0).any() or (yi>=nj).any():raise ValueError(f'Subset coverage mismatch {ni}x{nj}, {lon0}, {lat0}')
     v=ec.codes_get_values(gid);v=v.reshape(ni,nj).T if ec.codes_get_long(gid,'jPointsAreConsecutive') else v.reshape(nj,ni)
     v=v[np.ix_(yi,xi)].astype(float);v[(v==ec.codes_get_double(gid,'missingValue'))|(~np.isfinite(v))|(np.abs(v)>1e8)]=np.nan

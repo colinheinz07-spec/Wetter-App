@@ -162,9 +162,22 @@ def pack(values, scale):
     return base64.b64encode(encoded.tobytes()).decode("ascii")
 
 
-def model_data(model,selected=None):
+def model_data(model,selected=None,native=False,sink=None):
     cfg=MODELS[model]; hours=cfg["hours"]; x,y=target_grid(cfg)
     stamp,offers=selected or choose_run(model,hours)
+    if native:
+        xx,yy,_=sample_grib(download(offers['t_2m'][stamp,0]),None,None,stamp,0)
+        west,east,south,north=cfg['bounds']
+        x=xx[(xx>=west-1e-5)&(xx<=east+1e-5)];y=yy[(yy>=south-1e-5)&(yy<=north+1e-5)]
+    grid=dict(west=float(x[0]),south=float(y[0]),step=float(x[1]-x[0]) if native else cfg['delta'],nx=len(x),ny=len(y),scale=.1,missing=-32768)
+    if native and (not np.allclose(np.diff(x),grid['step'],atol=1e-6) or not np.allclose(np.diff(y),grid['step'],atol=1e-6)):raise ValueError('Nonuniform native grid')
+    def read(blob,hh,interval=None):
+        if not native:return sample_grib(blob,x,y,stamp,hh,interval)
+        xx,yy,values=sample_grib(blob,None,None,stamp,hh,interval)
+        ix=np.searchsorted(xx,x-1e-6);iy=np.searchsorted(yy,y-1e-6)
+        if (ix>=len(xx)).any() or (iy>=len(yy)).any() or not np.allclose(xx[ix],x,rtol=0,atol=1e-6) or not np.allclose(yy[iy],y,rtol=0,atol=1e-6):raise ValueError('Native field grid differs')
+        if not np.isclose(xx[1]-xx[0],grid['step'],rtol=0,atol=1e-6) or not np.isclose(yy[1]-yy[0],grid['step'],rtol=0,atol=1e-6):raise ValueError('Native field resolution differs')
+        return values[np.ix_(iy,ix)]
     def optional_listing(v):
         try: return v,listing(model,stamp[-2:],v)
         except Exception as exc:
@@ -183,7 +196,7 @@ def model_data(model,selected=None):
         def get(variable):
             if variable=="tot_prec" and hour==0:
                 return variable,None
-            return variable,sample_grib(download(offers[variable][stamp,hour]),x,y,stamp,hour)
+            return variable,read(download(offers[variable][stamp,hour]),hour)
         with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
             fields=dict(pool.map(get,VARIABLES))
         temp=fields["t_2m"]-273.15
@@ -205,7 +218,7 @@ def model_data(model,selected=None):
                 key,factor,offset,scale=EXTRA[variable]
                 if key in ('tmin','tmax') and hour==0:return None
                 interval=((hour-1)//6*6,'min' if key=='tmin' else 'max') if key in ('tmin','tmax') else None
-                values=sample_grib(download(url),x,y,stamp,hour,interval)
+                values=read(download(url),hour,interval)
                 return key,pack(values*factor+offset,scale)
             except Exception as exc:
                 print(f"Optional {model} {variable} +{hour}: {exc}",flush=True);return None
@@ -218,7 +231,7 @@ def model_data(model,selected=None):
             if not url:return None
             try:
                 key,factor,offset=spec
-                values=sample_grib(download(url),x,y,stamp,hour)
+                values=read(download(url),hour)
                 return key,values*factor+offset
             except Exception as exc:
                 print(f"Optional pressure {model} {variable} {level} +{hour}: {exc}",flush=True);return None
@@ -234,9 +247,10 @@ def model_data(model,selected=None):
             frames[str(hour)][key]=pack(value,.1)
         if not np.isfinite(temp).any():
             raise ValueError("Empty temperature field")
+        if sink is not None:sink(grid,hour,frames.pop(str(hour)),{key:scale for key,_,_,scale in EXTRA.values()})
         print(f"{model} +{hour:03d}h",flush=True)
     start=dt.datetime.strptime(stamp,"%Y%m%d%H").replace(tzinfo=dt.timezone.utc)
-    return dict(schema=1,model=cfg["name"],source="Deutscher Wetterdienst (DWD) Open Data",sourceUrl=f"{ROOT}/{model}/",run=start.isoformat(),generated=dt.datetime.now(dt.timezone.utc).isoformat(),grid=dict(west=float(x[0]),south=float(y[0]),step=cfg["delta"],nx=len(x),ny=len(y),scale=.1,missing=-32768),scales={key:scale for key,_,_,scale in EXTRA.values()},extremaWindowHours=6,hours=hours,frames=frames)
+    return dict(schema=1,model=cfg["name"],source="Deutscher Wetterdienst (DWD) Open Data",sourceUrl=f"{ROOT}/{model}/",run=start.isoformat(),generated=dt.datetime.now(dt.timezone.utc).isoformat(),grid=grid,scales={key:scale for key,_,_,scale in EXTRA.values()},extremaWindowHours=6,hours=hours,frames=frames)
 
 
 def main():
