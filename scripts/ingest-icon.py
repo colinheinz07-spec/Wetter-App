@@ -34,7 +34,7 @@ EXTRA = {"vmax_10m":("gust",3.6,0,.1),"h_snow":("snowdepth",100,0,.1),
          "clcm":("midcloud",1,0,.1),"clch":("highcloud",1,0,.1),
          "t_g":("tground",1,-273.15,.1),"snowlmt":("snowline",1,0,1),
          "hzerocl":("freezing",1,0,1),"ww":("ww",1,0,1),
-         "t_2m_max":("tmax",1,-273.15,.1),"t_2m_min":("tmin",1,-273.15,.1),
+         "tmax_2m":("tmax",1,-273.15,.1),"tmin_2m":("tmin",1,-273.15,.1),
          "t_snow":("tsnow",1,-273.15,.1),"t_5cm":("ground",1,-273.15,.1),
          "bas_con":("cloudbase",1,0,1),"top_con":("cloudtop",1,0,1),
          "htop_dc":("deepcloudtop",1,0,1),"cape_mu":("mucape",1,0,1),
@@ -99,7 +99,7 @@ def target_grid(config):
     return x, y
 
 
-def sample_grib(blob, x, y, stamp, hour):
+def sample_grib(blob, x, y, stamp, hour, interval=None):
     import eccodes as ec
     with tempfile.TemporaryFile() as f:
         f.write(bz2.decompress(blob));f.seek(0)
@@ -112,6 +112,10 @@ def sample_grib(blob, x, y, stamp, hour):
             actual = f"{ec.codes_get_long(gid,'dataDate'):08d}{ec.codes_get_long(gid,'dataTime')//100:02d}"
             if actual != stamp or ec.codes_get_long(gid,"endStep")!=hour:
                 raise ValueError(f"Wrong run/step: {actual}, {ec.codes_get(gid,'endStep')}")
+            if interval is not None:
+                start,kind=interval
+                if ec.codes_get_long(gid,'startStep')!=start or ec.codes_get(gid,'stepType')!=kind:
+                    raise ValueError(f'Unexpected extrema interval at +{hour}: {ec.codes_get(gid,"stepRange")}')
             ni,nj=ec.codes_get_long(gid,"Ni"),ec.codes_get_long(gid,"Nj")
             vals=ec.codes_get_values(gid)
             lat=ec.codes_get_array(gid,"latitudes")
@@ -185,7 +189,9 @@ def model_data(model,selected=None):
             if not url:return None
             try:
                 key,factor,offset,scale=EXTRA[variable]
-                values=sample_grib(download(url),x,y,stamp,hour)
+                if key in ('tmin','tmax') and hour==0:return None
+                interval=((hour-1)//6*6,'min' if key=='tmin' else 'max') if key in ('tmin','tmax') else None
+                values=sample_grib(download(url),x,y,stamp,hour,interval)
                 return key,pack(values*factor+offset,scale)
             except Exception as exc:
                 print(f"Optional {model} {variable} +{hour}: {exc}",flush=True);return None
@@ -216,7 +222,7 @@ def model_data(model,selected=None):
             raise ValueError("Empty temperature field")
         print(f"{model} +{hour:03d}h",flush=True)
     start=dt.datetime.strptime(stamp,"%Y%m%d%H").replace(tzinfo=dt.timezone.utc)
-    return dict(schema=1,model=cfg["name"],source="Deutscher Wetterdienst (DWD) Open Data",sourceUrl=f"{ROOT}/{model}/",run=start.isoformat(),generated=dt.datetime.now(dt.timezone.utc).isoformat(),grid=dict(west=float(x[0]),south=float(y[0]),step=cfg["delta"],nx=len(x),ny=len(y),scale=.1,missing=-32768),scales={key:scale for key,_,_,scale in EXTRA.values()},hours=hours,frames=frames)
+    return dict(schema=1,model=cfg["name"],source="Deutscher Wetterdienst (DWD) Open Data",sourceUrl=f"{ROOT}/{model}/",run=start.isoformat(),generated=dt.datetime.now(dt.timezone.utc).isoformat(),grid=dict(west=float(x[0]),south=float(y[0]),step=cfg["delta"],nx=len(x),ny=len(y),scale=.1,missing=-32768),scales={key:scale for key,_,_,scale in EXTRA.values()},extremaWindowHours=6,hours=hours,frames=frames)
 
 
 def main():

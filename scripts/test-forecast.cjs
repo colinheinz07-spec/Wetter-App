@@ -86,6 +86,8 @@ assert.equal(vm.runInContext(`radarGridAt(radarTest,[7,51],radarNow)`,context),n
 assert.equal(vm.runInContext(`radarGridAt(radarTest,[9,50],radarNow)`,context),null);
 assert.equal(vm.runInContext(`radarGridAt(radarTest,[8,50],radarNow+21*60000)`,context),null);
 console.log('Current grid never uses future hours; radar distinguishes dry, wet, missing and stale cells: OK');
+// Isolate the fixture from the real, newer ICON-D2 cycle.
+vm.runInContext(`realModelCache.delete('ICON-D2')`,context);
 assert.ok(Math.abs(vm.runInContext(`forecastDay(point,midnight,midnight).rain`,context)-4.8)<1e-8);
 assert.ok(vm.runInContext(`const day=forecastDay(point,midnight,midnight),h24=hourlyForecast([day],midnight);Math.abs(h24.reduce((s,h)=>s+h.rain,0)-day.rain)<1e-8 && h24.every(h=>h.step===1 && h.frame)`,context));
 assert.equal(vm.runInContext(`intervalLabel(midnight+18*HOUR_MS,midnight+DAY_MS)`,context),'18–00');
@@ -94,6 +96,35 @@ assert.ok(vm.runInContext(`const short={...ifs,run:new Date(Date.parse(run)+6*HO
 vm.runInContext(`shortModelCache.clear()`,context);
 assert.ok(vm.runInContext(`hourlyModelCache.clear();const coarseDay=forecastDay(point,utcDayStart(Date.parse(run)+120*HOUR_MS),Date.parse(run));hourlyForecast([coarseDay],coarseDay.start).every(h=>Number.isNaN(h.rain))`,context));
 console.log('UTC periods, time-weighted temperature, native hourly and six-hour/daily sums: OK');
+vm.runInContext(`realModelCache.set('ICON-D2',d2)`,context);
+// A day starts at local midnight, not 00 UTC. Test both DST transitions.
+assert.equal(vm.runInContext(`new Date(localBoundary(Date.UTC(2026,10,16,22,45))).toISOString()`,context),'2026-11-15T23:00:00.000Z');
+assert.equal(vm.runInContext(`new Date(localBoundary(Date.UTC(2026,10,16,23,15))).toISOString()`,context),'2026-11-16T23:00:00.000Z');
+assert.equal(vm.runInContext(`(dailyBoundaries(Date.UTC(2026,2,29,12),0)[4]-dailyBoundaries(Date.UTC(2026,2,29,12),0)[0])/HOUR_MS`,context),23);
+assert.equal(vm.runInContext(`(dailyBoundaries(Date.UTC(2026,9,25,12),0)[4]-dailyBoundaries(Date.UTC(2026,9,25,12),0)[0])/HOUR_MS`,context),25);
+vm.runInContext(`const savedModels=new Map(realModelCache);realModelCache.clear();hourlyModelCache.clear();const nightStart=Date.UTC(2026,10,16,10),localBounds=dailyBoundaries(nightStart,0),nightRun=new Date(localBounds[0]-6*HOUR_MS).toISOString(),nightHours=Array.from({length:49},(_,i)=>i),nightValues=[2,1,0,-1,-3,-4,1,3,5,7,9,10,11,12,13,14,14,13,11,9,7,5,4,3];const nightFixture={...native,run:nightRun,generated:nightRun,hours:nightHours,frames:Object.fromEntries(nightHours.map(h=>[h,{...native.frames[0],temp2:packed(10*(nightValues[h-6]??2)),rainTotal:packed(h*2),cloud:packed(0),ww:packed(0)}]))};hourlyModelCache.set('ICON-D2',[nightFixture]);const nightDay=forecastCalendarDays(point,nightStart)[0];`,context);
+assert.equal(vm.runInContext(`nightDay.periods[0].lo`,context),-4);
+assert.equal(vm.runInContext(`nightDay.hi`,context),14);
+assert.equal(vm.runInContext(`nightDay.periods[0].weather.icon`,context),'12_regen_2');
+assert.ok(vm.runInContext(`Math.abs(nightDay.rain-4.8)<1e-8&&!nightDay.rainEstimated`,context));
+assert.equal(vm.runInContext(`forecastIcon([],0,6,0,true).icon`,context),'07_klare_nacht');
+assert.equal(vm.runInContext(`forecastIcon([],0,6,100,true).icon`,context),'10_nachts_bedeckt');
+// A run-wide minimum from earlier in the day must not pollute this night.
+vm.runInContext(`const runningExtrema={...nightFixture,extremaWindowHours:6,frames:Object.fromEntries(nightHours.map(h=>[h,{...nightFixture.frames[h],tmin:packed(-100),tmax:packed(150)}]))};hourlyModelCache.set('ICON-D2',[runningExtrema]);`,context);
+assert.equal(vm.runInContext(`forecastPeriod(point,localBounds[0]+HOUR_MS,nightStart,localBounds[1]).lo`,context),-4);
+vm.runInContext(`runningExtrema.frames[12].tmin=packed(-110);realDecoded.clear()`,context);
+assert.equal(vm.runInContext(`forecastPeriod(point,localBounds[0]+HOUR_MS,nightStart,localBounds[1]).lo`,context),-11);
+vm.runInContext(`realDecoded.clear()`,context);
+vm.runInContext(`hourlyModelCache.clear();const coarseRun=new Date(localBounds[0]-5*HOUR_MS).toISOString(),coarseFixture={...native,run:coarseRun,generated:coarseRun,hours:Array.from({length:9},(_,i)=>i*6),frames:Object.fromEntries(Array.from({length:9},(_,i)=>[i*6,{...native.frames[0],temp2:packed(i*60),rainTotal:packed(i*60)}]))};realModelCache.set('ICON-D2',coarseFixture);const coarsePeriod=forecastPeriod(point,localBounds[0],nightStart,localBounds[1]);`,context);
+assert.ok(Math.abs(vm.runInContext(`coarsePeriod.mean`,context)-8)<1e-8);
+assert.equal(vm.runInContext(`coarsePeriod.rainEstimated`,context),true);
+assert.ok(Math.abs(vm.runInContext(`coarsePeriod.rain`,context)-6)<1e-8);
+assert.ok(vm.runInContext(`const coarseHours=hourlyForecast([{periods:[coarsePeriod]}],localBounds[0]);coarseHours.slice(0,6).every(h=>Number.isFinite(frameVal(h.frame,'temp2'))&&Number.isNaN(h.rain))`,context));
+vm.runInContext(`const freshRun=new Date(Date.parse(nightRun)+12*HOUR_MS).toISOString(),fresh={...coarseFixture,run:freshRun,generated:freshRun};realModelCache.set('ICON-D2',fresh);hourlyModelCache.set('ICON-D2',[nightFixture]);`,context);
+assert.equal(vm.runInContext(`forecastCandidates(localBounds[2],localBounds[3],nightStart)[0].run`,context),vm.runInContext(`freshRun`,context));
+assert.equal(vm.runInContext(`forecastCandidates(localBounds[0],localBounds[1],nightStart)[0].run`,context),vm.runInContext(`nightRun`,context));
+vm.runInContext(`realModelCache.clear();for(const [m,d] of savedModels)realModelCache.set(m,d);hourlyModelCache.clear()`,context);
+console.log('Local midnight, DST, true nocturnal minima, dry night icons and coarse temperature interpolation: OK');
 if(fs.existsSync('data/ifs.json')){
  const actual=JSON.parse(fs.readFileSync('data/ifs.json','utf8'));
  Object.assign(context,{actual,now:Date.parse(actual.generated),berlin:[13.4,52.52]});
@@ -101,5 +132,20 @@ if(fs.existsSync('data/ifs.json')){
  const days=vm.runInContext(`const rows=modelLocationFrames(berlin,now,true);Array.from({length:7},(_,i)=>rows.filter(f=>localDay(f.time)===localDay(now+i*86400000)).map(f=>f.d.model))`,context);
  assert.ok(days.every(d=>d.length),JSON.stringify(days));assert.ok(days[6].includes('IFS'));
  assert.ok(vm.runInContext(`rows.every(f=>!!frameWeather(f).icon)`,context));
+ // Real, published model data: no missing hour temperatures across midnight,
+ // and every period minimum/maximum contains all its sampled temperatures.
+ const zlib=require('node:zlib');
+ for(const [model,file] of [['ICON-D2','icon-d2'],['ICON-EU','icon-eu']]){
+  const path=`data/${file}-hourly.json.gz`;if(!fs.existsSync(path))continue;
+  const packet=JSON.parse(zlib.gunzipSync(fs.readFileSync(path)));Object.assign(context,{model,packet});
+  vm.runInContext(`hourlyModelCache.set(model,packet.runs.map(d=>validateRealData(d,model)))`,context);
+ }
+ for(const [name,p] of [['Berlin',[13.4,52.52]],['Westerwald',[7.8,50.5]],['München',[11.58,48.14]]]){
+  Object.assign(context,{testPoint:p});
+  const report=vm.runInContext(`(()=>{const days=forecastCalendarDays(testPoint,now),hours=hourlyForecast(days,now);return {days:days.map(d=>({day:localDay(d.start),lo:d.lo,hi:d.hi,models:d.periods.map(p=>p.model)})),hourCount:hours.filter(h=>Number.isFinite(frameVal(h.frame,'temp2'))).length,correct:days.every(d=>d.periods.every(p=>!p.rows.length||p.rows.every(f=>frameVal(f,'temp2')>=p.lo-1e-8&&frameVal(f,'temp2')<=p.hi+1e-8)))}})()`,context);
+  assert.equal(report.hourCount,24,`${name}: ${JSON.stringify(report)}`);
+  assert.ok(report.correct&&report.days.every(d=>Number.isFinite(d.lo)&&Number.isFinite(d.hi)&&d.lo<=d.hi),`${name}: ${JSON.stringify(report)}`);
+  console.log(`${name}: 24 hourly temperatures and all 7 local-day extrema verified against model samples`);
+ }
  console.log('Real published IFS + ICON: seven days including late-evening Today: OK');
 }

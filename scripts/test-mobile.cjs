@@ -9,10 +9,13 @@ const stations=JSON.parse(fs.readFileSync('data/stations.json','utf8'));
 const ifs=JSON.parse(fs.readFileSync('data/ifs.json','utf8'));
 // A tiny test image exercises the fallback only; production uses DWD PNGs.
 const fixedTime=new Date(Date.parse(ifs.generated)+60000);
-const midnight=new Date(Math.floor(fixedTime.getTime()/86400000)*86400000).toISOString();
+const midnight=Math.floor(fixedTime.getTime()/86400000)*86400000;
+const anchor=new Date(midnight-6*3600000).toISOString();
+const latest=new Date(Math.floor((fixedTime.getTime()-3*3600000)/(6*3600000))*6*3600000).toISOString();
 const packed=n=>{const b=Buffer.alloc(8);for(let i=0;i<4;i++)b.writeInt16LE(n,i*2);return b.toString('base64')};
 const hours=Array.from({length:49},(_,i)=>i);
-const hourlyFixture={schema:1,runs:[{schema:1,model:'ICON-D2',run:midnight,generated:midnight,grid:{west:13,south:52,step:1,nx:2,ny:2,scale:.1,missing:-32768},hours,frames:Object.fromEntries(hours.map(h=>[h,{temp2:packed(100+h),dew:packed(60),wind:packed(140),gust:packed(760),slp:packed(10100),cloud:packed(750),rainTotal:packed(h*2),ww:packed(3)}]))}]};
+const fixture=run=>({schema:1,model:'ICON-D2',run,generated:run,grid:{west:13,south:52,step:1,nx:2,ny:2,scale:.1,missing:-32768},hours,frames:Object.fromEntries(hours.map(h=>[h,{temp2:packed(100+h),dew:packed(60),wind:packed(140),gust:packed(760),slp:packed(10100),cloud:packed(750),rainTotal:packed(h*2),ww:packed(3)}]))});
+const hourlyFixture={schema:1,runs:[...new Set([latest,anchor])].sort().reverse().map(fixture)};
 const snapshotTime=new Date(Math.floor((fixedTime.getTime()-10*60000)/300000)*300000);
 stations.stations.push({id:'test-station',name:'Teststation',lon:13.4,lat:52.52,time:fixedTime.toISOString(),temp:39});
 const radarFixture={schema:1,product:'RY',time:snapshotTime.toISOString(),intervalMinutes:5,grid:{west:13,south:52,step:1,nx:2,ny:2,scale:.01,missing:-32768},amount:packed(25)};
@@ -39,7 +42,9 @@ const server=http.createServer((req,res)=>{
    const u=route.request().url();
    if(u.endsWith('/data/stations.json'))return route.fulfill({json:stations});
    if(new URL(u).pathname.endsWith('/data/radar-points.json.gz'))return route.fulfill({json:radarFixture});
-   if(u.endsWith('/data/icon-d2-hourly.json.gz'))return route.fulfill({json:hourlyFixture});
+   if(new URL(u).pathname.endsWith('/data/icon-d2-hourly.json.gz'))return route.fulfill({json:hourlyFixture});
+   if(new URL(u).pathname.endsWith('/data/icon-d2.json.gz'))return route.fulfill({json:fixture(latest)});
+   if(/\/data\/icon-d2(-hourly)?\.meta\.json$/.test(new URL(u).pathname))return route.fulfill({json:{model:'ICON-D2',run:latest,generated:latest,maxHour:48}});
    if(u.endsWith('/data/live-imagery.json'))return route.fulfill({json:{schema:1,products:{reflectivity:{...stations.radarImage,source:'DWD DMAX'},satellite:{...stations.radarImage,source:'EUMETSAT / NASA'}}}});
    if(u.startsWith(url))return route.continue();
    return route.abort();
@@ -66,6 +71,8 @@ const server=http.createServer((req,res)=>{
   assert.equal(await page.locator('.day-open .period').count(),4);
   assert.deepEqual(await page.locator('.day-open .period .rain').allTextContents(),Array(4).fill('1,2 mm / 6 h'));
   assert.match(await page.locator('.day-open .hour-detail').innerText(),/4,8 mm/);
+  assert.match(await page.locator('.day-open .hour-detail').innerText(),/Nachtminimum/);
+  assert.match(await page.locator('.day-open .period').first().innerText(),/00:00–06:00 Uhr/);
   assert.ok((await page.locator('.day-open .period img').evaluateAll(imgs=>imgs.map(i=>i.alt))).every(x=>x.includes('Niederschlag')));
   assert.equal(await page.locator('.real-day').first().locator('.day-alert svg').count(),1);
   await page.locator('[data-page="warnings"]').click();
