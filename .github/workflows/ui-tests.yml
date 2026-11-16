@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ['index.html', 'scripts/test-*.cjs', '.github/workflows/ui-tests.yml']
+    paths: ['index.html', 'scripts/test-*.cjs', 'scripts/audit-models.py', '.github/workflows/ui-tests.yml']
 permissions:
   contents: read
 jobs:
@@ -16,6 +16,7 @@ jobs:
         with:
           node-version: 22
       - run: node scripts/test-forecast.cjs
+      - run: python3 scripts/audit-models.py
       - run: npm install --no-save playwright
       - run: npx playwright install --with-deps chromium
       - run: node scripts/test-mobile.cjs
