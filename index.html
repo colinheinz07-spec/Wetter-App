@@ -1585,7 +1585,7 @@ function currentGridFrame(point,now=Date.now(),models=forecastPriority){
  if(!point)return null;
  for(const model of models){const candidates=[...(hourlyModelCache.get(model)||[]),...modelRuns(model)].flatMap(d=>{const run=Date.parse(d.run),hour=d.hours.filter(h=>run+h*3600000<=now).at(-1);return hour==null?[]:[{d,hour,time:run+hour*3600000,point}]});
   candidates.sort((a,b)=>b.time-a.time||Date.parse(b.d.run)-Date.parse(a.d.run)||a.d.hours[1]-b.d.hours[1]);
-  const f=candidates.find(f=>now-f.time<=6*3600000&&Number.isFinite(frameVal(f,'temp2')));if(f)return f;
+  const f=candidates.find(f=>now-f.time<=6*3600000&&now-Date.parse(f.d.run)<=modelAgeLimit(f.d.model)*3600000&&Number.isFinite(frameVal(f,'temp2')));if(f)return f;
  }return null;
 }
 let radarPointData=null,radarPointRequest=null;
@@ -1742,7 +1742,7 @@ function forecastPeriod(point,start,now,end=start+6*HOUR_MS){
   }):[];
   const recordLows=records('tmin',(a,b)=>a<b-.05),recordHighs=records('tmax',(a,b)=>a>b+.05);
   const minimum=[extreme('temp2',Math.min),...recordLows].filter(Number.isFinite),maximum=[extreme('temp2',Math.max),...recordHighs].filter(Number.isFinite);
-  const actual=native.filter(f=>f.time>=start&&f.time<end),actualValues=actual.map(f=>nativeTemperatureValue(f.d,point,f.hour,'temp2')),nativeComplete=actual.length>0&&actualValues.every(v=>v!==null&&Number.isFinite(v));
+  const actual=native.filter(f=>f.time>=start&&f.time<end),actualValues=actual.map(f=>nativeTemperatureValue(f.d,point,f.hour,'temp2')),nativeComplete=(end<=now||now-run<=modelAgeLimit(d.model)*HOUR_MS)&&actual.length>0&&actualValues.every(v=>v!==null&&Number.isFinite(v));
   const originalLo=nativeComplete?Math.min(...actualValues,...records('tmin',(a,b)=>a<b-.05,true).filter(Number.isFinite)):NaN,originalHi=nativeComplete?Math.max(...actualValues,...records('tmax',(a,b)=>a>b+.05,true).filter(Number.isFinite)):NaN,originalMean=nativeComplete?actualValues.reduce((s,v)=>s+v,0)/actualValues.length:NaN;
   const extremaComplete=recordLows.length>0&&recordLows.every(Number.isFinite)&&recordHighs.every(Number.isFinite);
   const result={start,end,duration,rows,intervals,nativeIntervals,step,model:d.model,data:d,raster:temperatureRaster(d,point),temperatureNative:nativeComplete,originalLo,originalHi,originalMean,rainEstimated:intervals.some(r=>r.estimated),temperatureEstimated:step>1,extremaComplete,rain:rain.every(Number.isFinite)?rain.reduce((a,b)=>a+b,0):NaN,mean:mean('temp2'),lo:Math.min(...minimum),hi:Math.max(...maximum),wind:mean('wind'),gust:extreme('gust',Math.max),slp:mean('slp'),cloud:mean('cloud'),snow:extreme('snowdepth',Math.max),representative:dailyWeatherFrame(native.slice(1))};

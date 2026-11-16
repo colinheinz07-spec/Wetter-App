@@ -23,3 +23,13 @@ with tempfile.TemporaryDirectory() as root:
     assert frame['temp2']==tile['frames']['0']['temp2']
     assert list(np.frombuffer(base64.b64decode(frame['temp2']),dtype='<i2'))==[30,60,90,10,-32768,-10]
 print('Original coordinates, map and point packet values agree')
+
+# Yesterday's 21Z appears in the same directory as the unfinished new 21Z.
+# The latest complete cycle is today's 18Z, not yesterday's 21Z.
+import datetime as dt
+api=runpy.run_path(str(here/'ingest-icon.py'))
+def offers(model,cycle,var):
+    stamps={'21':['2026111521'],'18':['2026111618']} .get(cycle,[])
+    return {(s,h):'fixture' for s in stamps for h in (0,1)}
+assert api['choose_run']('icon-d2',[0,1],now=dt.datetime(2026,11,16,21,15,tzinfo=dt.timezone.utc),source=offers)[0]=='2026111618'
+print('Cycle selection uses the full UTC date, not directory hour')
