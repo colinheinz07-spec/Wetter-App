@@ -9,6 +9,10 @@ const stations=JSON.parse(fs.readFileSync('data/stations.json','utf8'));
 const ifs=JSON.parse(fs.readFileSync('data/ifs.json','utf8'));
 // A tiny test image exercises the fallback only; production uses DWD PNGs.
 const fixedTime=new Date(Date.parse(ifs.generated)+60000);
+const midnight=new Date(Math.floor(fixedTime.getTime()/86400000)*86400000).toISOString();
+const packed=n=>{const b=Buffer.alloc(8);for(let i=0;i<4;i++)b.writeInt16LE(n,i*2);return b.toString('base64')};
+const hours=Array.from({length:49},(_,i)=>i);
+const hourlyFixture={schema:1,runs:[{schema:1,model:'ICON-D2',run:midnight,generated:midnight,grid:{west:13,south:52,step:1,nx:2,ny:2,scale:.1,missing:-32768},hours,frames:Object.fromEntries(hours.map(h=>[h,{temp2:packed(100+h),dew:packed(60),wind:packed(140),slp:packed(10100),cloud:packed(750),rainTotal:packed(h*2),ww:packed(61)}]))}]};
 const snapshotTime=new Date(Math.floor((fixedTime.getTime()-10*60000)/300000)*300000);
 stations.radarBase=snapshotTime.toISOString();
 stations.radarImage={time:snapshotTime.toISOString(),bounds:[2,45,18,57],png:'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jR1sAAAAASUVORK5CYII='};
@@ -32,12 +36,13 @@ const server=http.createServer((req,res)=>{
   await page.route('**/*',route=>{
    const u=route.request().url();
    if(u.endsWith('/data/stations.json'))return route.fulfill({json:stations});
+   if(u.endsWith('/data/icon-d2-hourly.json.gz'))return route.fulfill({json:hourlyFixture});
    if(u.endsWith('/data/live-imagery.json'))return route.fulfill({json:{schema:1,products:{reflectivity:{...stations.radarImage,source:'DWD DMAX'},satellite:{...stations.radarImage,source:'EUMETSAT / NASA'}}}});
    if(u.startsWith(url))return route.continue();
    return route.abort();
   });
   await page.goto(url+'/index.html');
-  await page.waitForFunction(()=>document.querySelectorAll('.real-day').length===7&&[...document.querySelectorAll('.real-day')].some(x=>x.innerText.includes('IFS')),{},{timeout:45000});
+  await page.waitForFunction(()=>document.querySelectorAll('.real-day').length===7&&[...document.querySelectorAll('.real-day')].some(x=>x.innerText.includes('IFS'))&&document.querySelectorAll('.hour img').length===24,{},{timeout:45000});
   const rows=await page.locator('.real-day').allTextContents();
   assert.equal(rows.length,7);assert.ok(rows.every(x=>!x.includes('Keine Daten')),rows.join('\n'));
   assert.ok(rows[0].includes('Heute')&&!rows[0].includes('Keine Daten'));
@@ -46,8 +51,16 @@ const server=http.createServer((req,res)=>{
   assert.equal(await page.locator('.real-day .day-icon img').count(),7);
   assert.equal(await page.locator('.hour img').count(),await page.locator('.hour').count());
   await page.waitForFunction(()=>[...document.querySelectorAll('.real-day img,.hour img')].every(i=>i.complete&&i.naturalWidth>0));
-  await page.locator('.real-day').nth(2).click();
-  assert.ok(await page.locator('.day-hour-header img').count()>0);
+  assert.equal(await page.locator('.hour').count(),24);
+  assert.ok((await page.locator('.hour .rain').allTextContents()).every(x=>x==='0,2 mm'));
+  await page.locator('[data-home-jump=".forecast"]').click();
+  await page.waitForFunction(()=>document.querySelector('.forecast').getBoundingClientRect().top<100&&document.querySelector('.forecast').getBoundingClientRect().top>=-20);
+  await page.locator('.real-day').first().click();
+  assert.equal(await page.locator('.day-open .period').count(),4);
+  assert.deepEqual(await page.locator('.day-open .period .rain').allTextContents(),Array(4).fill('1,2 mm / 6 h'));
+  assert.match(await page.locator('.day-open .hour-detail').innerText(),/4,8 mm/);
+  await page.locator('[data-home-jump=".home-maps"]').click();
+  await page.waitForFunction(()=>document.querySelector('.home-maps').getBoundingClientRect().top<innerHeight&&document.querySelector('.home-maps').getBoundingClientRect().bottom>0);
   await page.waitForFunction(()=>document.querySelector('#home-value-radar')?.innerText.startsWith('DWD ·'),{},{timeout:25000});
   for(const width of [390,320,430,900]){
    await page.setViewportSize({width,height:844});

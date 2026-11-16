@@ -48,6 +48,13 @@ vm.runInContext(chunk('function pressureExtrema(','function drawRealPressure('),
 assert.equal(vm.runInContext(`pressureExtrema(Array.from({length:25},(_,i)=>1000-Math.hypot(i%5-2,Math.floor(i/5)-2)*2),{nx:5,ny:5},1)[0].label`,context),'H');
 console.log('Whole-degree temperatures, exact WW, IFS precipitation type and same-run supplemental fields: OK');
 console.log('Existing ICON grids, IFS schema, model transitions, precipitation and missing fields: OK');
+vm.runInContext(`const midnight=utcDayStart(Date.parse(run)),hourlyRun=new Date(midnight).toISOString(),nativeHours=Array.from({length:49},(_,i)=>i),native={...ifs,model:'ICON-D2',run:hourlyRun,generated:hourlyRun,hours:nativeHours,frames:Object.fromEntries(nativeHours.map(h=>[h,{...ifs.frames[0],temp2:packed(h*10),rainTotal:packed(h*2),ww:packed(61)}]))};hourlyModelCache.set('ICON-D2',[validateRealData(native,'ICON-D2')]);`,context);
+assert.equal(vm.runInContext(`forecastDay(point,midnight,midnight).periods[0].mean`,context),3);
+assert.ok(Math.abs(vm.runInContext(`forecastDay(point,midnight,midnight).rain`,context)-4.8)<1e-8);
+assert.ok(vm.runInContext(`const day=forecastDay(point,midnight,midnight),h24=hourlyForecast([day],midnight);Math.abs(h24.reduce((s,h)=>s+h.rain,0)-day.rain)<1e-8 && h24.every(h=>h.step===1 && h.frame)`,context));
+assert.equal(vm.runInContext(`intervalLabel(midnight+18*HOUR_MS,midnight+DAY_MS)`,context),'18–00');
+assert.ok(vm.runInContext(`hourlyModelCache.clear();const coarseDay=forecastDay(point,utcDayStart(Date.parse(run)+120*HOUR_MS),Date.parse(run));hourlyForecast([coarseDay],coarseDay.start).every(h=>Number.isNaN(h.rain))`,context));
+console.log('UTC periods, time-weighted temperature, native hourly and six-hour/daily sums: OK');
 if(fs.existsSync('data/ifs.json')){
  const actual=JSON.parse(fs.readFileSync('data/ifs.json','utf8'));
  Object.assign(context,{actual,now:Date.parse(actual.generated),berlin:[13.4,52.52]});
