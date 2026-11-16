@@ -72,7 +72,8 @@ def pressure_listing(model, run, variable):
 def choose_run(model, hours):
     """Find newest complete cycle, only using the same initialization stamp."""
     now = dt.datetime.now(dt.timezone.utc)
-    runs = [(now - dt.timedelta(hours=i)).strftime("%H") for i in range(24) if (now.hour-i) % 6 == 0]
+    cycle=3 if model=='icon-d2' else 6
+    runs = [(now - dt.timedelta(hours=i)).strftime("%H") for i in range(24) if (now.hour-i) % cycle == 0]
     for run in runs:
         try:
             with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
@@ -143,9 +144,9 @@ def pack(values, scale):
     return base64.b64encode(encoded.tobytes()).decode("ascii")
 
 
-def model_data(model):
+def model_data(model,selected=None):
     cfg=MODELS[model]; hours=cfg["hours"]; x,y=target_grid(cfg)
-    stamp,offers=choose_run(model,hours)
+    stamp,offers=selected or choose_run(model,hours)
     def optional_listing(v):
         try: return v,listing(model,stamp[-2:],v)
         except Exception as exc:
@@ -222,9 +223,12 @@ def main():
     parser=argparse.ArgumentParser();parser.add_argument("--output",default="data");parser.add_argument("--models",nargs="+",choices=MODELS,default=list(MODELS));args=parser.parse_args()
     output=Path(args.output);output.mkdir(parents=True,exist_ok=True)
     # Build all outputs first, so a failed model cannot replace only half.
-    data={model:model_data(model) for model in args.models}
-    for model,payload in data.items():
+    for model in args.models:
         path=output/f"{model}.json";temp=path.with_suffix(".tmp")
+        selected=choose_run(model,MODELS[model]['hours'])
+        if path.exists() and dt.datetime.fromisoformat(json.loads(path.read_text())['run']).strftime('%Y%m%d%H')>=selected[0]:
+            print(f'{model}: newest run already published',flush=True);continue
+        payload=model_data(model,selected)
         temp.write_text(json.dumps(payload,separators=(",",":")),encoding="utf8");os.replace(temp,path)
 
 

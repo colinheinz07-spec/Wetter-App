@@ -52,6 +52,7 @@ const server=http.createServer((req,res)=>{
   assert.equal(await page.locator('.hour img').count(),await page.locator('.hour').count());
   await page.waitForFunction(()=>[...document.querySelectorAll('.real-day img,.hour img')].every(i=>i.complete&&i.naturalWidth>0));
   assert.equal(await page.locator('.hour').count(),24);
+  assert.ok((await page.locator('.hour-time').allTextContents()).every(x=>/^\d\d–\d\d Uhr$/.test(x)));
   assert.ok((await page.locator('.hour .rain').allTextContents()).every(x=>x==='0,2 mm'));
   await page.locator('[data-home-jump=".forecast"]').click();
   await page.waitForFunction(()=>document.querySelector('.forecast').getBoundingClientRect().top<100&&document.querySelector('.forecast').getBoundingClientRect().top>=-20);
@@ -72,6 +73,9 @@ const server=http.createServer((req,res)=>{
   await page.locator('.forecast').scrollIntoViewIfNeeded();
   if(process.env.WEATHER_TEST_SCREENSHOT)await page.screenshot({path:process.env.WEATHER_TEST_SCREENSHOT});
   await page.locator('[data-page="map"]').click();
+  await page.waitForFunction(()=>document.querySelector('#map-run').selectedOptions[0]?.textContent.includes('UTC'));
+  assert.ok(!(await page.locator('#map-parameter').innerText()).includes('keine Realdaten'));
+  assert.equal(await page.locator('#map-parameter').isEnabled(),true);
   await page.locator('[data-map-source="live"]').click();
   await page.locator('#map-live-layer').selectOption('reflectivity');
   await page.waitForFunction(()=>document.querySelector('#map-data-notice').textContent==='Beobachtung');

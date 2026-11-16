@@ -19,12 +19,13 @@ jobs:
       - uses: actions/checkout@v4
       - run: sudo apt-get update && sudo apt-get install -y python3-eccodes python3-numpy
       - run: /usr/bin/python3 scripts/ingest-gfs.py
+      - run: python3 scripts/publish-model.py gfs
       - name: Publish verified forecast
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add data/gfs.json
+          git add data/gfs.json data/gfs.json.gz data/gfs.meta.json
           if git diff --cached --quiet; then exit 0; fi
           git commit -m 'Update NOAA GFS forecast'
           git pull --rebase origin main
-          git push origin HEAD:main
+          git push origin HEAD:main || (git pull --rebase origin main && git push origin HEAD:main)

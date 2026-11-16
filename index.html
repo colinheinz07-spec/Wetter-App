@@ -263,7 +263,7 @@ function dayRow(d,i){
  const warningNote=i===1?'<div class="day-warning">'+ui('alert',17)+'<span>Glätte · 05–09 Uhr und 17–20 Uhr<br>Besonders auf Nebenstrecken und Brücken.</span></div>':'';
  return '<button class="day" data-day="'+i+'" aria-expanded="'+(openDay===i)+'"><div><div class="dayname">'+d[0]+warning+'</div><div class="daydate">'+d[1]+'</div></div>'+weather(d[4],d[5])+'<div class="tempgroup"><span class="low">'+degrees(d[2])+'</span><div class="range"><div class="range-fill" style="left:'+left+'%;width:'+width+'%"></div></div><span class="high">'+degrees(d[3])+'</span></div>'+ui('chevron',18,'chev')+'</button>'+(openDay===i?'<div class="day-open"><p class="day-summary">'+d[5]+'</p>'+warningNote+'<div class="period-grid">'+d[6].map((p,j)=>'<div class="period"><span>'+p[0]+'</span>'+weather(p[2])+'<b>'+degrees(p[1])+'</b><span class="rain">'+p[3]+' %</span><span class="rain">'+fmt(extra.prec[j])+' mm</span>'+((i===1&&(j===0||j===2))?'<span class="period-risk">Glätte</span>':'')+'</div>').join('')+'</div><p class="section-label">Tageswerte</p><div class="day-values">'+daysValues.map(parameterValue).join('')+'</div></div>':'')
 }
-function setPage(page){if(page!=='map')stopPlay();activePage=page;document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active',p.id==='page-'+page));document.querySelectorAll('[data-page]').forEach(b=>{b.classList.toggle('active',b.dataset.page===page);if(b.dataset.page===page)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});window.scrollTo(0,0);if(weatherRealEnabled&&page==='weather')renderWeather();if(weatherRealEnabled&&page==='expert')renderRealExpert();if(page==='map'){scheduleMap();if(mapSource==='model'&&modelDataMode==='real')fetchRealModel(mapModel)}}
+function setPage(page){if(page!=='map')stopPlay();activePage=page;document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active',p.id==='page-'+page));document.querySelectorAll('[data-page]').forEach(b=>{b.classList.toggle('active',b.dataset.page===page);if(b.dataset.page===page)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});window.scrollTo(0,0);if(weatherRealEnabled&&page==='weather')renderWeather();if(weatherRealEnabled&&page==='expert')renderRealExpert();if(page==='map'){renderMap();if(mapSource==='model'&&modelDataMode==='real')fetchRealModel(mapModel)}}
 const nav=[['weather','Wetter','weather'],['map','Karte','map'],['warnings','Warnungen','alert'],['expert','Experten','chart']];
 el('navigation').innerHTML=nav.map(([id,label,icon])=>'<button data-page="'+id+'" class="'+(id==='weather'?'active':'')+'" '+(id==='weather'?'aria-current="page"':'')+'>'+ui(icon,24)+label+'</button>').join('');
 document.querySelectorAll('[data-page]').forEach(b=>b.addEventListener('click',()=>setPage(b.dataset.page)));
@@ -1367,13 +1367,16 @@ const modelProvider=model=>model==='IFS'?'ECMWF':model==='GFS'?'NOAA':'DWD';
 let modelDataMode='demo',realModelRevision=0;
 const realModelCache=new Map(),realModelRequests=new Map(),realDecoded=new Map(),realModelErrors=new Map();
 const hourlyModelCache=new Map(),hourlyModelRequests=new Map();
+const shortModelCache=new Map(),modelCheckTimes=new Map();
+const modelRuns=model=>[shortModelCache.get(model),realModelCache.get(model)].filter(Boolean).sort((a,b)=>Date.parse(b.run)-Date.parse(a.run));
 const weatherCodesCache=new Map();
 function supplementalWeatherField(d,h){
  const extra=weatherCodesCache.get(d.model);
  if(!extra||Date.parse(extra.run)!==Date.parse(d.run)||['west','south','step','nx','ny'].some(k=>extra.grid?.[k]!==d.grid[k]))return null;
  return extra.frames?.[h];
 }
-function realData(){return modelDataMode==='real'?realModelCache.get(mapModel):null}
+function realData(){return modelDataMode==='real'?(modelRuns(mapModel).find(d=>Date.parse(d.run)===selectedMapRun)||modelRuns(mapModel)[0]):null}
+let selectedMapRun=null;
 function realModelSupported(p,step,max,anyHour=false){
  const d=realData(),id=p.id==='rh'?'rh2':p.id;if(!d||p.interval>max)return false;
  const interval=id==='rainrate'||id==='radiation'?step:/^rain\d+$/.test(id)||id==='conv'||id==='strat'?p.interval:0;
@@ -1429,34 +1432,41 @@ function realModelValue(d,p,lon,lat,h){
  }
  return read(h,p.id==='rh'?'rh2':p.id);
 }
-async function fetchRealModel(model,force=false){
- const file=realModelFiles[model];if(!file)return;
- if(realModelRequests.has(model))return realModelRequests.get(model);
- if(realModelCache.has(model)&&!force)return;
+async function snapshotMetadata(file){
+ try{const r=await fetch(dataRoot+file+'.meta.json?t='+Math.floor(Date.now()/60000),{cache:'no-store',credentials:'omit',signal:AbortSignal.timeout(8000)});return r.ok?await r.json():null}catch{return null}
+}
+const newerSnapshot=(a,b)=>!b||Date.parse(a.run)>Date.parse(b.run)||Date.parse(a.run)===Date.parse(b.run)&&Date.parse(a.generated)>Date.parse(b.generated);
+async function fetchRealModel(model,force=false,short=false){
+ const file=short?'ifs-short':realModelFiles[model],key=short?'IFS-short':model,cache=short?shortModelCache:realModelCache;if(!file)return;
+ if(realModelRequests.has(key))return realModelRequests.get(key);
+ if(cache.has(model)&&!force)return;
  realModelErrors.delete(model);
  let changed=false;
  const task=(async()=>{
   let failure;
-  const local='data/'+file+'.json',remote='https://raw.githubusercontent.com/colinheinz07-spec/Wetter-App/main/data/'+file+'.json';
+  const local='data/'+file+'.json',remote=dataRoot+file+'.json',previous=cache.get(model),meta=await snapshotMetadata(file);
+  if(meta&&previous&&!newerSnapshot(meta,previous))return;
+  if(!meta&&previous&&Date.now()-(modelCheckTimes.get(key)||0)<15*60000)return;
+  modelCheckTimes.set(key,Date.now());
   const compressed=typeof DecompressionStream==='function';
-  const candidates=realModelCache.has(model)?[remote,local]:[local,remote];
+  const candidates=[remote,local];
   for(const url of candidates.flatMap(url=>compressed?[url+'.gz',url]:[url])){
    try{
     const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),['IFS','GFS'].includes(model)?90000:45000);let response;
-    try{response=await fetch(url,{cache:'no-cache',credentials:'omit',signal:controller.signal});if(!response.ok)throw Error('HTTP '+response.status);
+    try{response=await fetch(url+(meta&&url.startsWith(remote)?'?v='+encodeURIComponent(meta.generated):''),{cache:'no-store',credentials:'omit',signal:controller.signal});if(!response.ok)throw Error('HTTP '+response.status);
     let payload;if(url.endsWith('.gz')){const raw=await response.arrayBuffer(),bytes=new Uint8Array(raw);payload=bytes[0]===31&&bytes[1]===139?await new Response(new Blob([raw]).stream().pipeThrough(new DecompressionStream('gzip'))).json():JSON.parse(new TextDecoder().decode(raw))}else payload=await response.json();
     const d=validateRealData(payload,model);
-    const previous=realModelCache.get(model);
-    if(!previous||Date.parse(d.run)>Date.parse(previous.run)||Date.parse(d.run)===Date.parse(previous.run)&&Date.parse(d.generated)>Date.parse(previous.generated)){realModelCache.set(model,d);for(const key of realDecoded.keys())if(key.startsWith(model+'/'))realDecoded.delete(key);realModelRevision++;changed=true}
-    if(url.startsWith(local)&&Date.now()-Date.parse(d.run)>(['IFS','GFS'].includes(model)?24:9)*3600000)continue;
+    const previous=cache.get(model);
+    if(meta&&url.startsWith(remote)&&newerSnapshot(meta,d))continue;
+    if(newerSnapshot(d,previous)){cache.set(model,d);for(const k of realDecoded.keys())if(k.startsWith(model+'/'))realDecoded.delete(k);realModelRevision++;changed=true}
     if(previous&&Date.parse(d.run)<Date.parse(previous.run))continue;
     return;}finally{clearTimeout(timeout)}
    }catch(e){failure=e}
   }
   realModelErrors.set(model,String(failure?.message||'Nicht erreichbar'));
  })();
- realModelRequests.set(model,task);
- try{await task}finally{realModelRequests.delete(model);if(activePage==='map'&&mapSource==='model'&&mapModel===model&&modelDataMode==='real')renderMap();if(changed&&typeof weatherRealEnabled!=='undefined'&&weatherRealEnabled){if(activePage==='weather')renderWeather();else if(activePage==='expert')renderRealExpert();else if(activePage==='map'&&mapSource==='live')scheduleMap()}}
+ realModelRequests.set(key,task);
+ try{await task}finally{realModelRequests.delete(key);if(activePage==='map'&&mapSource==='model'&&mapModel===model&&modelDataMode==='real')renderMap();if(changed&&typeof weatherRealEnabled!=='undefined'&&weatherRealEnabled){if(activePage==='weather')renderWeather();else if(activePage==='expert')renderRealExpert();else if(activePage==='map'&&mapSource==='live')scheduleMap()}}
 }
 function modelStatus(){
  if(modelDataMode!=='real')return {label:'Testdaten · keine Vorhersage',detail:'Modellkarte · synthetische Testfelder'};
@@ -1490,8 +1500,7 @@ const localDay=t=>new Date(t).toLocaleDateString('sv-SE',{timeZone:'Europe/Berli
 const realPoint=(d,p,id,h,interval=0)=>p?realModelValue(d,{id,interval},p[0],p[1],h):NaN;
 function chooseLocationModel(t,p,preferFuture=false,models=forecastPriority){
  if(!p)return null;
- for(const model of models){
-  const d=realModelCache.get(model);if(!d)continue;
+ for(const model of models)for(const d of modelRuns(model)){
   const run=Date.parse(d.run),target=(t-run)/3600000,step=d.hours[1]-d.hours[0];
   if(target<0||target>d.hours.at(-1))continue;
   const hour=preferFuture?Math.ceil(target/step)*step:Math.round(target/step)*step;
@@ -1563,9 +1572,10 @@ const utcDayStart=t=>Math.floor(t/DAY_MS)*DAY_MS;
 const utcTime=(t,opts={})=>new Date(t).toLocaleString('de-DE',{...opts,timeZone:'UTC'});
 const utcHour=t=>String(new Date(t).getUTCHours()).padStart(2,'0');
 const intervalLabel=(a,b)=>utcHour(a)+'–'+utcHour(b);
+const localIntervalLabel=(a,b)=>localTime(a,{hour:'2-digit',minute:'2-digit',hourCycle:'h23'})+'–'+localTime(b,{hour:'2-digit',minute:'2-digit',hourCycle:'h23'});
 function forecastPeriod(point,start,now){
  const end=start+6*HOUR_MS,models=forecastPriority.filter(m=>m!=='ICON-D2'||end<=now+48*HOUR_MS);
- const candidates=[...models.flatMap(m=>hourlyModelCache.get(m)||[]),...models.map(m=>realModelCache.get(m)).filter(Boolean)].filter(d=>d.hours.length>=2);
+ const candidates=[...models.flatMap(m=>hourlyModelCache.get(m)||[]),...models.flatMap(modelRuns)].filter(d=>d.hours.length>=2);
  let fallback=null;
  for(const d of candidates){
   const run=Date.parse(d.run),a=(start-run)/HOUR_MS,b=(end-run)/HOUR_MS,step=d.hours[1];
@@ -1598,12 +1608,14 @@ function hourlyForecast(days,now){
 async function fetchHourlyModel(model){
  if(hourlyModelRequests.has(model))return hourlyModelRequests.get(model);
  const file=realModelFiles[model]+'-hourly.json.gz',task=(async()=>{
+  const meta=await snapshotMetadata(realModelFiles[model]+'-hourly'),old=hourlyModelCache.get(model)?.[0];if(meta&&old&&!newerSnapshot(meta,old))return;
   for(const url of [dataRoot+file,'data/'+file])try{
    const c=new AbortController(),timer=setTimeout(()=>c.abort(),60000);let payload;
-   try{const res=await fetch(url,{signal:c.signal,cache:'no-cache',credentials:'omit'});if(!res.ok)continue;const raw=await res.arrayBuffer(),b=new Uint8Array(raw);payload=b[0]===31&&b[1]===139?await new Response(new Blob([raw]).stream().pipeThrough(new DecompressionStream('gzip'))).json():JSON.parse(new TextDecoder().decode(raw))}finally{clearTimeout(timer)}
+   try{const res=await fetch(url+(meta&&url.startsWith(dataRoot)?'?v='+encodeURIComponent(meta.generated):''),{signal:c.signal,cache:'no-store',credentials:'omit'});if(!res.ok)continue;const raw=await res.arrayBuffer(),b=new Uint8Array(raw);payload=b[0]===31&&b[1]===139?await new Response(new Blob([raw]).stream().pipeThrough(new DecompressionStream('gzip'))).json():JSON.parse(new TextDecoder().decode(raw))}finally{clearTimeout(timer)}
    if(payload.schema!==1||!Array.isArray(payload.runs)||!payload.runs.length)continue;
    const runs=payload.runs.map(d=>validateRealData(d,model)).filter(d=>d.hours[1]===1).sort((a,b)=>Date.parse(b.run)-Date.parse(a.run));if(!runs.length)continue;
-   const old=hourlyModelCache.get(model)?.[0];if(!old||Date.parse(runs[0].run)>Date.parse(old.run)||Date.parse(runs[0].run)===Date.parse(old.run)&&Date.parse(runs[0].generated)>Date.parse(old.generated)){hourlyModelCache.set(model,runs);if(weatherRealEnabled&&activePage==='weather')renderWeather()}return;
+   if(meta&&url.startsWith(dataRoot)&&newerSnapshot(meta,runs[0]))continue;
+   if(newerSnapshot(runs[0],old)){hourlyModelCache.set(model,runs);if(weatherRealEnabled&&activePage==='weather')renderWeather()}return;
   }catch{}
  })();hourlyModelRequests.set(model,task);try{await task}finally{hourlyModelRequests.delete(model)}
 }
@@ -1654,8 +1666,8 @@ function renderRealWeather(){
  const hero='<section class="panel hero"><div class="hero-head"><span class="tag">'+(s?'MESSWERT':f?'MODELL':'WETTER')+'</span><span class="small">'+source+'</span></div><div class="hero-weather"><div><div class="temp">'+temperatureText(temp)+'<span>°C</span></div><div class="condition">'+(f?w.condition:'Keine Modellprognose verfügbar')+'</div><div class="feels">'+(s?'Wetterzustand: Modell':'Modellwert · keine Messung')+'</div></div>'+realWeatherIcon(f)+'</div><div class="metrics">'+realMetric('wind',s&&Number.isFinite(s.wind)?'Wind (Station)':'Wind (Modell)',wind,'km/h')+realMetric('wind','Böen (Modell)',frameVal(f,'gust'),'km/h')+realMetric('drop','Feuchte (berechnet)',humidity,'%')+'</div></section>';
  const next=hourlyForecast(days,now);selectedHour=Math.min(selectedHour,next.length-1);
  const details=items=>items.map(([label,value])=>'<div class="detail-item">'+label+'<b>'+value+'</b></div>').join('');
- const detail=a=>{const h=a.frame;return details([['Zeitraum (UTC)',intervalLabel(a.start,a.end)+' Uhr'],['Modell',a.model?(a.model+(a.step!==1?' · gröbere Zeitschritte':'')):'—'],['Temperatur',temperatureText(frameVal(h,'temp2'))+' °C'],['Niederschlag (1 h)',localFormat(a.rain)+' mm'],['Taupunkt',temperatureText(frameVal(h,'dew'))+' °C'],['Wind',localFormat(frameVal(h,'wind'))+' km/h'],['Böen',localFormat(frameVal(h,'gust'))+' km/h'],['Bewölkung',localFormat(frameVal(h,'cloud'))+' %'],['Luftdruck NN',localFormat(frameVal(h,'slp'))+' hPa']])};
- const hourly='<section class="panel hourly"><div class="section-head"><div><h2>Stundenverlauf</h2><p>Nächste 24 Stunden · Niederschlag je Stunde · UTC</p></div><span class="badge">1 h</span></div><div class="hour-scroll">'+next.map((a,i)=>'<button class="hour '+(selectedHour===i?'active':'')+'" data-hour="'+i+'" aria-pressed="'+(selectedHour===i)+'"><span class="hour-time">'+intervalLabel(a.start,a.end)+'</span>'+ (realWeatherIcon(a.frame)||'<span class="hour-empty">—</span>')+'<strong>'+temperatureText(frameVal(a.frame,'temp2'))+'°</strong><span class="rain">'+localFormat(a.rain)+' mm</span></button>').join('')+'</div>'+(!next.every(a=>Number.isFinite(a.rain))?'<p class="small muted">— = keine echte Stundensumme verfügbar.</p>':'')+'<div class="hour-detail" id="hour-detail">'+detail(next[selectedHour])+'</div></section>';
+ const detail=a=>{const h=a.frame;return details([['Zeitraum (Ortszeit)',localIntervalLabel(a.start,a.end)+' Uhr'],['Modell',a.model?(a.model+(a.step!==1?' · gröbere Zeitschritte':'')):'—'],['Temperatur',temperatureText(frameVal(h,'temp2'))+' °C'],['Niederschlag (1 h)',localFormat(a.rain)+' mm'],['Taupunkt',temperatureText(frameVal(h,'dew'))+' °C'],['Wind',localFormat(frameVal(h,'wind'))+' km/h'],['Böen',localFormat(frameVal(h,'gust'))+' km/h'],['Bewölkung',localFormat(frameVal(h,'cloud'))+' %'],['Luftdruck NN',localFormat(frameVal(h,'slp'))+' hPa']])};
+ const hourly='<section class="panel hourly"><div class="section-head"><div><h2>Stundenverlauf</h2><p>Nächste 24 Stunden · Niederschlag je Stunde · Ortszeit</p></div><span class="badge">1 h</span></div><div class="hour-scroll">'+next.map((a,i)=>'<button class="hour '+(selectedHour===i?'active':'')+'" data-hour="'+i+'" aria-pressed="'+(selectedHour===i)+'"><span class="hour-time">'+localIntervalLabel(a.start,a.end).replace(/:00/g,'')+' Uhr</span>'+ (realWeatherIcon(a.frame)||'<span class="hour-empty">—</span>')+'<strong>'+temperatureText(frameVal(a.frame,'temp2'))+'°</strong><span class="rain">'+localFormat(a.rain)+' mm</span></button>').join('')+'</div>'+(!next.every(a=>Number.isFinite(a.rain))?'<p class="small muted">Stündliche Modelldaten werden automatisch nachgeladen. Bis dahin sind nur veröffentlichte Zeitpunkte verfügbar.</p>':'')+'<div class="hour-detail" id="hour-detail">'+detail(next[selectedHour])+'</div></section>';
  el('weather-left').innerHTML=hero+hourly;
  const dayItems=days.map((d,i)=>{const icon=realWeatherIcon(d.representative,true),models=[...new Set(d.periods.map(p=>p.model).filter(Boolean))];
   const blocks=d.periods.map((p,j)=>'<div class="period"><b>'+['Nachts','Vormittags','Nachmittags','Abends'][j]+'</b><span class="small muted">'+intervalLabel(p.start,p.end)+' UTC</span>'+ (realWeatherIcon(p.representative)||'<span class="hour-empty">—</span>')+'<strong>'+temperatureText(p.mean)+'°</strong><span class="rain">'+localFormat(p.rain)+' mm / 6 h</span><span class="small muted">'+(p.model||'—')+'</span></div>').join('');
@@ -1672,8 +1684,8 @@ function renderRealWeather(){
 }
 function initWeatherData(){
  weatherRealEnabled=true;renderWeather();
- const update=()=>{for(const model of forecastPriority.filter(m=>m!=='GFS'||realModelCache.has('GFS')||mapModel==='GFS'))fetchRealModel(model,true);for(const model of ['ICON-D2','ICON-EU'])fetchHourlyModel(model);fetchRealWeatherCodes();fetchRealModel('IFS').then(()=>{if(!chooseLocationModel(Date.now()+7*DAY_MS,homeLocationPoint(location),true,['IFS']))fetchRealModel('GFS')})};update();fetchStationData();
- setInterval(()=>{if(!document.hidden)update()},30*60000);setInterval(()=>{if(!document.hidden)fetchStationData()},5*60000);
+ const update=()=>{for(const model of forecastPriority)fetchRealModel(model,true);fetchRealModel('IFS',true,true);for(const model of ['ICON-D2','ICON-EU'])fetchHourlyModel(model);fetchRealWeatherCodes()};update();fetchStationData();
+ setInterval(()=>{if(!document.hidden){update();fetchStationData()}},5*60000);document.addEventListener('visibilitychange',()=>{if(!document.hidden){update();fetchStationData();if(activePage==='weather')renderWeather()}});window.addEventListener('online',()=>{update();fetchStationData()});
 }
 function renderRealExpert(){
  const f=chooseLocationModel(Date.now(),homeLocationPoint(location));
@@ -2129,11 +2141,12 @@ function renderMap(){
  const list=mapOptions();if(!list.includes(mapModel))mapModel=list[0];const model=effectiveModel();
  modelSelect.innerHTML=list.map(s=>'<option value="'+s+'" '+(s===mapModel?'selected':'')+'>'+s+'</option>').join('');
  if(fields[mapLayer].interval>model.max)mapLayer='rain24';
- const available=mapParameters.filter(p=>p.interval<=model.max),groups=[...new Set(available.map(p=>p.group))];
- if(modelDataMode==='real'&&realData())available.sort((a,b)=>Number(realModelSupported(b,model.step,model.max,true))-Number(realModelSupported(a,model.step,model.max,true)));
- parameterSelect.innerHTML=groups.map(g=>'<optgroup label="'+g+'">'+available.filter(p=>p.group===g).map(p=>'<option value="'+p.id+'" '+(p.id===mapLayer?'selected':'')+'>'+p.label+(modelDataMode==='real'&&(!realModelFiles[mapModel]||!realModelSupported(p,model.step,model.max,true))?' · keine Realdaten':'')+'</option>').join('')+'</optgroup>').join('');
- const run=el('map-run'),date=modelRunDate();run.disabled=modelDataMode==='real';el('map-run-label').textContent=modelDataMode==='real'?'Modelllauf ('+modelProvider(mapModel)+')':'Modelllauf (Demo)';
- run.innerHTML=modelDataMode==='real'?'<option value="0">'+(date?timeText(date):'Noch nicht verfügbar')+'</option>':[0,6,12].map(h=>'<option value="'+h+'" '+(mapRun===h?'selected':'')+'>15.11. · '+String(h).padStart(2,'0')+' UTC</option>').join('');
+ const data=realData(),available=mapParameters.filter(p=>p.interval<=model.max&&(!data||realModelSupported(p,model.step,model.max,true))),groups=[...new Set(available.map(p=>p.group))];
+ if(data&&!available.some(p=>p.id===mapLayer)&&available.length)mapLayer=available[0].id;
+ parameterSelect.disabled=modelDataMode==='real'&&!data;
+ parameterSelect.innerHTML=groups.map(g=>'<optgroup label="'+g+'">'+available.filter(p=>p.group===g).map(p=>'<option value="'+p.id+'" '+(p.id===mapLayer?'selected':'')+'>'+p.label+'</option>').join('')+'</optgroup>').join('');
+ const run=el('map-run'),date=modelRunDate(),runs=modelRuns(mapModel);run.disabled=modelDataMode==='real'&&runs.length<2;el('map-run-label').textContent=modelDataMode==='real'?'Modelllauf ('+modelProvider(mapModel)+')':'Modelllauf (Demo)';
+ run.innerHTML=modelDataMode==='real'?'<option value="auto">'+(runs.length?'Aktuell · '+timeText(new Date(runs[0].run)):'Modell wird geladen …')+'</option>'+runs.map(d=>'<option value="'+Date.parse(d.run)+'" '+(Date.parse(d.run)===selectedMapRun?'selected':'')+'>'+timeText(new Date(d.run))+' (+'+d.hours.at(-1)+' h)</option>').join(''):[0,6,12].map(h=>'<option value="'+h+'" '+(mapRun===h?'selected':'')+'>15.11. · '+String(h).padStart(2,'0')+' UTC</option>').join('');
  el('map-data-mode').value=modelDataMode;el('map-data-refresh').hidden=modelDataMode!=='real';
  const time=el('map-time');if(mapSource==='live'){syncLiveTimeControls()}
  else{time.max=model.max;time.step=model.step;time.min=minHour();mapHour=clamp(Math.round(mapHour/model.step)*model.step,minHour(),model.max);time.value=mapHour;time.setAttribute('aria-label','Vorhersagezeit')}
@@ -2142,9 +2155,9 @@ function renderMap(){
 }
 function stopPlay(){if(mapTimer!==null){clearInterval(mapTimer);mapTimer=null}el('map-play').textContent='▶';el('map-play').setAttribute('aria-label',mapSource==='live'?'Radar-Zeitverlauf abspielen':'Vorhersage abspielen')}
 function openMapLayer(id,model){stopPlay();mapSource='model';if(terrainMode==='topo'){terrainMode='weather-relief';el('map-terrain-mode').value=terrainMode}if(id&&fields[id])mapLayer=id;if(model&&mapModels[model]){mapModel=model;if(model==='ICON-D2'&&mapRegion!=='Deutschland'){mapRegion='Deutschland';mapZoom=1;mapCenter=null;mapPoint=null;mapPointName=''}}renderMap();if(modelDataMode==='real')fetchRealModel(mapModel);setPage('map')}
-modelSelect.addEventListener('change',()=>{stopPlay();mapModel=modelSelect.value;renderMap();if(modelDataMode==='real')fetchRealModel(mapModel)});
+modelSelect.addEventListener('change',()=>{stopPlay();selectedMapRun=null;mapModel=modelSelect.value;renderMap();if(modelDataMode==='real')fetchRealModel(mapModel)});
 parameterSelect.addEventListener('change',()=>{stopPlay();mapLayer=parameterSelect.value;renderMap()});
-el('map-run').addEventListener('change',e=>{mapRun=+e.target.value;scheduleMap()});
+el('map-run').addEventListener('change',e=>{if(modelDataMode==='real'){selectedMapRun=e.target.value==='auto'?null:Number(e.target.value);realModelRevision++;renderMap()}else{mapRun=+e.target.value;scheduleMap()}});
 document.querySelectorAll('[data-region]').forEach(b=>b.addEventListener('click',()=>{stopPlay();mapRegion=b.dataset.region;mapZoom=1;mapCenter=null;mapPoint=null;mapPointName='';renderMap();if(mapSource==='model'&&modelDataMode==='real')fetchRealModel(mapModel)}));
 document.querySelectorAll('[data-map-source]').forEach(b=>b.addEventListener('click',()=>setMapSource(b.dataset.mapSource)));
 el('map-live-layer').addEventListener('change',e=>selectLiveLayer(e.target.value));

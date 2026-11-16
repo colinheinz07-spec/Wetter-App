@@ -3,6 +3,7 @@
 Use the official JSON-lines GRIB index and HTTP byte ranges. No third-party
 forecast API or key is necessary. All fields belong to a single model run.
 """
+import argparse
 import concurrent.futures as futures
 import datetime as dt
 import json
@@ -54,7 +55,8 @@ def get(url, offset=None, length=None):
 
 def file_base(run, hour):
     stamp = run.strftime('%Y%m%d%H')
-    return f'{ROOT}/{stamp[:8]}/{stamp[8:]}z/ifs/0p25/oper/{stamp}0000-{hour}h-oper-fc'
+    stream='scda' if run.hour in (6,18) else 'oper'
+    return f'{ROOT}/{stamp[:8]}/{stamp[8:]}z/ifs/0p25/{stream}/{stamp}0000-{hour}h-{stream}-fc'
 
 
 def index(run, hour):
@@ -69,13 +71,14 @@ def selected(rows):
             yield row, specs
 
 
-def choose_run():
+def choose_run(short=False):
     now = dt.datetime.now(dt.timezone.utc)
-    base = now.replace(hour=now.hour//12*12,minute=0,second=0,microsecond=0)
+    base = now.replace(hour=now.hour//6*6,minute=0,second=0,microsecond=0)
     for i in range(6):
-        run = base-dt.timedelta(hours=12*i)
+        run = base-dt.timedelta(hours=6*i)
+        if (run.hour in (6,18))!=short:continue
         try:
-            rows = index(run,HOURS[-1]); keys={spec[0] for _,spec in selected(rows)}
+            rows = index(run,90 if short else HOURS[-1]); keys={spec[0] for _,spec in selected(rows)}
             if CORE <= keys:
                 return run
         except Exception as exc:
@@ -147,15 +150,16 @@ def frame(run,hour):
 
 
 def main():
-    run=choose_run()
-    out=Path('data/ifs.json');out.parent.mkdir(exist_ok=True)
+    parser=argparse.ArgumentParser();parser.add_argument('--short',action='store_true');args=parser.parse_args()
+    run=choose_run(args.short);hours=list(range(0,91,6)) if args.short else HOURS
+    out=Path('data/ifs-short.json' if args.short else 'data/ifs.json');out.parent.mkdir(exist_ok=True)
     if out.exists():
         previous=json.loads(out.read_text())
         if dt.datetime.fromisoformat(previous['run'])>=run and 't925' in previous['frames'].get('0',{}):
             print('IFS cycle already published');return
     with futures.ThreadPoolExecutor(max_workers=2) as pool:
-        frames=dict(pool.map(lambda hour:frame(run,hour),HOURS))
-    payload=dict(schema=1,model='IFS',source='ECMWF IFS Open Data (CC BY 4.0), adapted',sourceUrl=ROOT+'/',run=run.isoformat(),generated=dt.datetime.now(dt.timezone.utc).isoformat(),grid=GRID,scales=SCALES,hours=HOURS,frames=frames)
+        frames=dict(pool.map(lambda hour:frame(run,hour),hours))
+    payload=dict(schema=1,model='IFS',source='ECMWF IFS Open Data (CC BY 4.0), adapted',sourceUrl=ROOT+'/',run=run.isoformat(),generated=dt.datetime.now(dt.timezone.utc).isoformat(),grid=GRID,scales=SCALES,hours=hours,frames=frames)
     with tempfile.NamedTemporaryFile('w',dir=out.parent,delete=False) as target:
         json.dump(payload,target,separators=(',',':'));name=target.name
     os.replace(name,out)
