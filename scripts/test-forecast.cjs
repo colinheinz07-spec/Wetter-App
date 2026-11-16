@@ -44,6 +44,15 @@ assert.equal(vm.runInContext(`chooseLocationModel(Date.parse(run)+180*3600000,po
 assert.equal(vm.runInContext(`realModelCache.delete('IFS');chooseLocationModel(Date.parse(run)+180*3600000,point).d.model`,context),'GFS');
 vm.runInContext(`realModelCache.set('IFS',ifs);realModelCache.delete('GFS')`,context);
 console.log('GFS fallback and pressure-level wind vector: OK');
+vm.runInContext(`const aifs={...ifs,model:'AIFS',hours:Array.from({length:61},(_,i)=>i*6),frames:Object.fromEntries(Array.from({length:61},(_,i)=>[i*6,{...ifs.frames[0],rainTotal:packed(i*12)}]))};const aiControl={...aifs,model:'AIFS-ENS Control'};realModelCache.set('AIFS',validateRealData(aifs,'AIFS'));realModelCache.set('AIFS-ENS Control',validateRealData(aiControl,'AIFS-ENS Control'));`,context);
+assert.equal(vm.runInContext(`chooseLocationModel(Date.parse(run)+300*3600000,point).d.model`,context),'AIFS');
+assert.equal(vm.runInContext(`chooseLocationModel(Date.parse(run)+300*3600000,point,false,['AIFS-ENS Control']).d.model`,context),'AIFS-ENS Control');
+assert.throws(()=>vm.runInContext(`validateRealData({...aifs,frames:{...aifs.frames,6:{...aifs.frames[6],gust:'bad'}}},'AIFS')`,context),/Ungültiges Modellfeld/);
+vm.runInContext(`realModelCache.delete('AIFS');realModelCache.delete('AIFS-ENS Control');const indexFixture={...ifs,model:'index-test',frames:{6:{...ifs.frames[6],t850:packed(50),rh850:packed(1000),t700:packed(-50),rh700:packed(1000),t500:packed(-200)}}};`,context);
+assert.ok(Math.abs(vm.runInContext(`realModelValue(indexFixture,{id:'tt'},...point,6)`,context)-50)<1e-6);
+assert.ok(Math.abs(vm.runInContext(`realModelValue(indexFixture,{id:'ki'},...point,6)`,context)-30)<1e-6);
+assert.ok(Number.isNaN(vm.runInContext(`realModelValue(ifs,{id:'tt'},...point,6)`,context)));
+console.log('AIFS and ENS control, extended lead times, optional field integrity and derived indices: OK');
 vm.runInContext(chunk('function pressureExtrema(','function drawRealPressure('),context);
 assert.equal(vm.runInContext(`pressureExtrema(Array.from({length:25},(_,i)=>1000-Math.hypot(i%5-2,Math.floor(i/5)-2)*2),{nx:5,ny:5},1)[0].label`,context),'H');
 console.log('Whole-degree temperatures, exact WW, IFS precipitation type and same-run supplemental fields: OK');

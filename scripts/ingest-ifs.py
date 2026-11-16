@@ -18,6 +18,10 @@ import numpy as np
 
 ROOT = 'https://data.ecmwf.int/forecasts'
 HOURS = list(range(0, 241, 6))
+PRODUCTS = {'ifs': ('ifs', 'oper', 'fc', 'IFS'),
+            'aifs': ('aifs-single', 'oper', 'fc', 'AIFS'),
+            'aifs-ens-control': ('aifs-ens', 'enfo', 'cf', 'AIFS-ENS Control')}
+PRODUCT = 'ifs'
 GRID = dict(west=-25., south=34., step=.5, nx=135, ny=75, scale=.1, missing=-32768)
 X = GRID['west'] + np.arange(GRID['nx'])*GRID['step']
 Y = GRID['south'] + np.arange(GRID['ny'])*GRID['step']
@@ -38,6 +42,7 @@ PRESSURE.update({('r',n):(f'rh{n}',1,0) for n in LEVELS})
 PRESSURE.update({('gh',n):(f'z{n}',.1,0) for n in LEVELS})
 PRESSURE.update({('z',n):(f'z{n}',1/98.0665,0) for n in LEVELS})
 PRESSURE.update({(v,n):(f'{v}{n}',1,0) for v in ('u','v') for n in LEVELS})
+PRESSURE.update({('q',n):(f'q{n}',1,0) for n in LEVELS})
 
 
 def get(url, offset=None, length=None):
@@ -55,8 +60,9 @@ def get(url, offset=None, length=None):
 
 def file_base(run, hour):
     stamp = run.strftime('%Y%m%d%H')
-    stream='scda' if run.hour in (6,18) else 'oper'
-    return f'{ROOT}/{stamp[:8]}/{stamp[8:]}z/ifs/0p25/{stream}/{stamp}0000-{hour}h-{stream}-fc'
+    model,stream,kind,_=PRODUCTS[PRODUCT]
+    # Since IFS cycle 50r1 the short cycles also use stream=oper.
+    return f'{ROOT}/{stamp[:8]}/{stamp[8:]}z/{model}/0p25/{stream}/{stamp}0000-{hour}h-{stream}-{kind}'
 
 
 def index(run, hour):
@@ -64,26 +70,30 @@ def index(run, hour):
 
 
 def selected(rows):
+    # Some ECMWF files carry both geopotential and geopotential height.
+    # Prefer the direct height product to avoid duplicate downloads.
+    heights={int(row['levelist']) for row in rows if row.get('levtype')=='pl' and row.get('param')=='gh'}
     for row in rows:
         param = row.get('param')
+        if param=='z' and row.get('levtype')=='pl' and int(row.get('levelist',0)) in heights:continue
         specs = SURFACE.get(param) if row.get('levtype') == 'sfc' else PRESSURE.get((param,int(row.get('levelist',0)))) if row.get('levtype') == 'pl' else None
         if specs:
             yield row, specs
 
 
-def choose_run(short=False):
+def choose_run(short=False,hours=HOURS):
     now = dt.datetime.now(dt.timezone.utc)
     base = now.replace(hour=now.hour//6*6,minute=0,second=0,microsecond=0)
     for i in range(6):
         run = base-dt.timedelta(hours=6*i)
-        if (run.hour in (6,18))!=short:continue
+        if PRODUCT=='ifs' and (run.hour in (6,18))!=short:continue
         try:
-            rows = index(run,90 if short else HOURS[-1]); keys={spec[0] for _,spec in selected(rows)}
+            rows = index(run,hours[-1]); keys={spec[0] for _,spec in selected(rows)}
             if CORE <= keys:
                 return run
         except Exception as exc:
             print(f'{run}: {exc}',flush=True)
-    raise RuntimeError('No complete recent long IFS cycle')
+    raise RuntimeError(f'No complete recent {PRODUCT} cycle')
 
 
 def sample(row, spec, run, hour):
@@ -112,6 +122,17 @@ def sample(row, spec, run, hour):
         grid=values.reshape(ni,nj).T if ec.codes_get_long(gid,'jPointsAreConsecutive') else values.reshape(nj,ni)
         out=grid[np.ix_(yi,xi)].astype(float)
         out[(out==ec.codes_get_double(gid,'missingValue'))|(~np.isfinite(out))|(np.abs(out)>1e8)]=np.nan
+        # ECMWF AI products use WMO GRIB units for some fields, while IFS
+        # local definitions use fractions and metres. Read actual GRIB units.
+        units=ec.codes_get(gid,'units')
+        if key in ('cloud','lowcloud','midcloud','highcloud'):
+            if units in ('%','percent'):factor=1
+            elif units in ('(0 - 1)','1','Numeric'):factor=100
+            else:raise ValueError(f'Unexpected cloud units: {units}')
+        if key in ('rainTotal','convTotal','snowWaterTotal','snowWater'):
+            if units in ('kg m**-2','kg m-2','mm'):factor=1
+            elif units in ('m','m of water equivalent'):factor=1000
+            else:raise ValueError(f'Unexpected water units: {units}')
         return key,out*factor+shift
     finally:
         ec.codes_release(gid)
@@ -130,11 +151,22 @@ def frame(run,hour):
         values['rainTotal']=np.where(np.isfinite(values['temp2']),0,np.nan)
     if not CORE <= values.keys() or not all(np.isfinite(values[k]).any() for k in CORE):
         raise ValueError(f'Missing core IFS fields at +{hour}: {CORE-values.keys()}')
+    for key in ('cloud','lowcloud','midcloud','highcloud'):
+        if key in values:
+            values[key]=np.where((values[key]>=-.1)&(values[key]<=100.1),np.clip(values[key],0,100),np.nan)
+    if not np.isfinite(values['cloud']).any():raise ValueError('Invalid cloud cover units')
     u,v=values.pop('u10'),values.pop('v10')
     values['wind']=np.hypot(u,v)*3.6
     values['winddir']=(np.degrees(np.arctan2(-u,-v))+360)%360
     t,d=values['temp2'],values['dew']
     values['rh2']=np.clip(100*np.exp(17.625*d/(243.04+d)-17.625*t/(243.04+t)),0,100)
+    # AIFS publishes specific humidity rather than relative humidity on pressure levels.
+    for level in LEVELS:
+        q=values.pop(f'q{level}',None); temp=values.get(f't{level}')
+        if q is not None and temp is not None and f'rh{level}' not in values:
+            e=q*level/(.622+.378*q)
+            es=6.112*np.exp(17.67*temp/(temp+243.5))
+            values[f'rh{level}']=np.clip(100*e/es,0,100)
     if 'u300' in values and 'v300' in values:values['jet']=np.hypot(values['u300'],values['v300'])
     if 'u100' in values and 'v100' in values:values['wind100']=np.hypot(values.pop('u100'),values.pop('v100'))*3.6
     if 'snowWater' in values and 'snowDensity' in values:
@@ -145,21 +177,26 @@ def frame(run,hour):
         if all(k in values for k in (f't{low}','t500',f'z{low}','z500')):
             thickness=(values['z500']-values[f'z{low}'])/100
             values[key]=np.divide(values[f't{low}']-values['t500'],thickness,out=np.full_like(t,np.nan),where=thickness>0)
-    print(f'IFS +{hour}h: {len(values)} fields',flush=True)
+    print(f'{PRODUCT} +{hour}h: {len(values)} fields',flush=True)
     return str(hour),{key:pack(val,SCALES.get(key,.1)) for key,val in values.items()}
 
 
 def main():
-    parser=argparse.ArgumentParser();parser.add_argument('--short',action='store_true');args=parser.parse_args()
-    run=choose_run(args.short);hours=list(range(0,91,6)) if args.short else HOURS
-    out=Path('data/ifs-short.json' if args.short else 'data/ifs.json');out.parent.mkdir(exist_ok=True)
+    global PRODUCT
+    parser=argparse.ArgumentParser();parser.add_argument('--short',action='store_true');parser.add_argument('--product',choices=PRODUCTS,default='ifs');args=parser.parse_args()
+    PRODUCT=args.product
+    if args.short and PRODUCT!='ifs':parser.error('--short only applies to IFS')
+    hours=list(range(0,91,6)) if args.short else list(range(0,361,6)) if PRODUCT!='ifs' else HOURS
+    run=choose_run(args.short,hours)
+    out=Path('data/ifs-short.json' if args.short else f'data/{PRODUCT}.json');out.parent.mkdir(exist_ok=True)
     if out.exists():
         previous=json.loads(out.read_text())
         if dt.datetime.fromisoformat(previous['run'])>=run and 't925' in previous['frames'].get('0',{}):
             print('IFS cycle already published');return
     with futures.ThreadPoolExecutor(max_workers=2) as pool:
         frames=dict(pool.map(lambda hour:frame(run,hour),hours))
-    payload=dict(schema=1,model='IFS',source='ECMWF IFS Open Data (CC BY 4.0), adapted',sourceUrl=ROOT+'/',run=run.isoformat(),generated=dt.datetime.now(dt.timezone.utc).isoformat(),grid=GRID,scales=SCALES,hours=hours,frames=frames)
+    name=PRODUCTS[PRODUCT][3]
+    payload=dict(schema=1,model=name,source=f'ECMWF {name} Open Data (CC BY 4.0), adapted',sourceUrl=ROOT+'/',run=run.isoformat(),generated=dt.datetime.now(dt.timezone.utc).isoformat(),grid=GRID,scales=SCALES,hours=hours,frames=frames)
     with tempfile.NamedTemporaryFile('w',dir=out.parent,delete=False) as target:
         json.dump(payload,target,separators=(',',':'));name=target.name
     os.replace(name,out)
