@@ -1874,7 +1874,7 @@ function renderRealWeather(){
  fetchNativeTemperature(point);
  const days=forecastCalendarDays(point,now);
  const warnings=localWarnings(days,now,warningElevation(point));
- const source=f?f.d.model+' · '+(temperatureRaster(f.d,point)||'Ortsraster')+' · '+localTime(f.time,{hour:'2-digit',minute:'2-digit'}):'Keine aktuellen Rasterdaten';
+ const source=f?f.d.model+' · Ortsraster · '+localTime(f.time,{hour:'2-digit',minute:'2-digit'})+(temperatureRaster(f.d,point)?' · Temperatur: '+temperatureRaster(f.d,point):''):'Keine aktuellen Rasterdaten';
  const temp=frameVal(f,'temp2'),wind=frameVal(f,'wind'),dew=frameVal(f,'dew');
  const humidity=Number.isFinite(temp)&&Number.isFinite(dew)?Math.min(100,100*Math.exp(17.625*dew/(243.04+dew)-17.625*temp/(243.04+temp))):NaN;
  const rainText=radar?(radar.amount>0?'Niederschlag · '+localFormat(radar.rate)+' mm/h':'Trocken laut Radar'):'Radarwert derzeit nicht verfügbar';
