@@ -69,25 +69,32 @@ def pressure_listing(model, run, variable):
     return {(stamp,int(hour),int(level)):directory+name for name,stamp,hour,level in PRESSURE_FILENAME.findall(download(directory).decode("utf8"))}
 
 
-def choose_run(model, hours):
-    """Find newest complete cycle, only using the same initialization stamp."""
-    now = dt.datetime.now(dt.timezone.utc)
+def choose_run(model, hours, now=None, source=None):
+    """Select newest COMPLETE initialization by date, then hour.
+
+    DWD directories are keyed only by UTC hour and may contain yesterday's
+    complete cycle while today's cycle is still uploading.
+    """
+    now = now or dt.datetime.now(dt.timezone.utc)
+    source = source or listing
     cycle=3 if model=='icon-d2' else 6
-    runs = [(now - dt.timedelta(hours=i)).strftime("%H") for i in range(24) if (now.hour-i) % cycle == 0]
-    for run in runs:
-        try:
-            with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
-                offers = dict(zip(VARIABLES, pool.map(lambda v: listing(model, run, v), VARIABLES)))
-        except Exception as exc:
-            print(f"{model} {run}: directory unavailable: {exc}", flush=True)
-            continue
-        stamps = sorted({stamp for stamp, _ in offers["t_2m"]}, reverse=True)
-        for stamp in stamps:
-            start = dt.datetime.strptime(stamp, "%Y%m%d%H").replace(tzinfo=dt.timezone.utc)
-            if not now - dt.timedelta(hours=48) <= start <= now:
-                continue
-            if all((stamp, h) in offers[v] for v in VARIABLES for h in hours if not (v=="tot_prec" and h==0)):
-                return stamp, offers
+    base=now.replace(hour=now.hour//cycle*cycle,minute=0,second=0,microsecond=0)
+    by_hour={}
+    for lag in range(0,49,cycle):
+        candidate=base-dt.timedelta(hours=lag)
+        if now-candidate>dt.timedelta(hours=48):break
+        run=candidate.strftime('%H');stamp=candidate.strftime('%Y%m%d%H')
+        if run not in by_hour:
+            try:
+                with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+                    by_hour[run]=dict(zip(VARIABLES,pool.map(lambda v:source(model,run,v),VARIABLES)))
+            except Exception as exc:
+                print(f"{model} {run}: directory unavailable: {exc}",flush=True)
+                by_hour[run]={}
+        offers=by_hour[run]
+        if offers and all((stamp,h) in offers[v] for v in VARIABLES for h in hours if not (v=='tot_prec' and h==0)):
+            print(f'{model}: newest complete initialization {stamp}',flush=True)
+            return stamp,offers
     raise RuntimeError(f"No complete recent {model} run available")
 
 

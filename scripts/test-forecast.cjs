@@ -166,3 +166,9 @@ if(fs.existsSync('data/ifs.json')){
  }
  console.log('Real published IFS + ICON: seven days including late-evening Today: OK');
 }
+
+ // Original-grid values remain distinct even when the old map used one coarse cell.
+ assert.equal(vm.runInContext(`nativeMapTemperatureValue({meta:{grid:{west:7.8,south:50.5,dx:.02,dy:.02,nx:2,ny:2,scale:.1,missing:-32768}},values:new Int16Array([30,60,90,-32768])},7.82,50.5)`,context),6);
+ assert.equal(vm.runInContext(`nativeMapTemperatureValue({meta:{grid:{west:7.8,south:50.5,dx:.02,dy:.02,nx:2,ny:2,scale:.1,missing:-32768}},values:new Int16Array([30,60,90,-32768])},7.8,50.5)`,context),3);
+ assert.ok(Number.isNaN(vm.runInContext(`nativeMapTemperatureValue(null,7.8,50.5)`,context)));
+ console.log('Original temperature map cells: exact, distinct, no missing-data substitution');
