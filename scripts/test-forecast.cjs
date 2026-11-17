@@ -90,6 +90,16 @@ console.log('Current grid never uses future hours; radar distinguishes dry, wet,
 vm.runInContext(`realModelCache.delete('ICON-D2')`,context);
 assert.ok(Math.abs(vm.runInContext(`forecastDay(point,midnight,midnight).rain`,context)-4.8)<1e-8);
 assert.ok(vm.runInContext(`const day=forecastDay(point,midnight,midnight),h24=hourlyForecast([day],midnight);Math.abs(h24.reduce((s,h)=>s+h.rain,0)-day.rain)<1e-8 && h24.every(h=>h.step===1 && h.frame)`,context));
+// The radar predicts a rain band much wetter than the hourly model (0.2 mm).
+// Both the six-hour and daily summaries must use the exact same revised hours.
+vm.runInContext(`radarNowcastData=decodeRadarNowcast({schema:1,product:'RV',time:new Date(midnight).toISOString(),intervalMinutes:5,grid:{west:7,south:50,step:1,nx:2,ny:2,scale:.01,missing:-32768},frames:Object.fromEntries(Array.from({length:24},(_,i)=>[(i+1)*5,packed(20)]))});const rvDay=forecastDay(point,midnight,midnight),rvHours=hourlyForecast([rvDay],midnight);`,context);
+assert.ok(vm.runInContext(`Math.abs(rvHours[0].rain-2.4)<1e-8&&Math.abs(rvHours[1].rain-2.4)<1e-8&&Math.abs(rvHours[2].rain-.2)<1e-8`,context));
+assert.ok(vm.runInContext(`Math.abs(rvDay.periods[0].rain-5.6)<1e-8&&Math.abs(rvDay.rain-rvHours.reduce((sum,h)=>sum+h.rain,0))<1e-8&&Math.abs(hourlyRainWindow(rvHours,midnight,midnight+2*HOUR_MS)-4.8)<1e-8`,context));
+assert.ok(vm.runInContext(`localPrecipitationHour(point,midnight,midnight+26*60000).radarUsed===false`,context));
+assert.ok(vm.runInContext(`const midHour=midnight+20*60000,mixedHour=localPrecipitationHour(point,midnight,midHour);Math.abs(mixedHour.rain-(.2/3+1.6))<1e-8&&Math.abs(hourlyRainWindow([mixedHour],midHour,midnight+HOUR_MS)-1.6)<1e-8`,context));
+assert.ok(vm.runInContext(`radarNowcastData.frames[5]=packed(-32768);Math.abs(localPrecipitationHour(point,midnight,midnight).rain-(2.2+.2/12))<1e-8`,context));
+vm.runInContext(`radarNowcastData=null`,context);
+console.log('RV nowcast hourly and six-hour/day sums, partial hour, stale/missing radar fallback: OK');
 assert.equal(vm.runInContext(`intervalLabel(midnight+18*HOUR_MS,midnight+DAY_MS)`,context),'18–00');
 assert.equal(vm.runInContext(`localIntervalLabel(Date.UTC(2026,10,16,5),Date.UTC(2026,10,16,6))`,context),'06:00–07:00');
 assert.ok(vm.runInContext(`const short={...ifs,run:new Date(Date.parse(run)+6*HOUR_MS).toISOString(),hours:ifs.hours.slice(0,16)};shortModelCache.set('IFS',short);modelRuns('IFS')[0]===short && chooseLocationModel(Date.parse(run)+12*HOUR_MS,point,false,['IFS']).d===short && chooseLocationModel(Date.parse(run)+168*HOUR_MS,point,false,['IFS']).d===ifs`,context));
