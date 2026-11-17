@@ -2,12 +2,12 @@ name: Original-resolution model maps
 on:
   workflow_dispatch:
   pull_request:
-    paths: ['.github/workflows/native-maps.yml','scripts/ingest-native-maps.py','scripts/ingest-icon.py','scripts/ingest-gfs.py','scripts/ingest-ifs.py']
+    paths: ['.github/workflows/native-maps.yml','scripts/ingest-native-maps.py','scripts/native-point.py','scripts/ingest-icon.py','scripts/ingest-gfs.py','scripts/ingest-ifs.py']
   schedule:
     - cron: '25 1,7,13,19 * * *'
   push:
     branches: [main]
-    paths: ['.github/workflows/native-maps.yml','scripts/ingest-native-maps.py','scripts/ingest-icon.py','scripts/ingest-gfs.py','scripts/ingest-ifs.py']
+    paths: ['.github/workflows/native-maps.yml','scripts/ingest-native-maps.py','scripts/native-point.py','scripts/ingest-icon.py','scripts/ingest-gfs.py','scripts/ingest-ifs.py']
 permissions:
   contents: write
 concurrency:
@@ -71,6 +71,7 @@ jobs:
           test "$(du -sb "$dir" | cut -f1)" -lt 1500000000
           git -C "$dir" config user.name 'github-actions[bot]'
           git -C "$dir" config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git -C "$dir" add -- '*.json.gz' index.json
+          git -C "$dir" add -- '*.json.gz' index.json point-index.json
           git -C "$dir" commit -m "Generated native map snapshot $MODEL"
           git -C "$dir" push --force-with-lease="$ref:$old" origin "HEAD:$ref"
+
