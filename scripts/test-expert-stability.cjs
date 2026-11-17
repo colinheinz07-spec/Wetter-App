@@ -1,0 +1,43 @@
+// Regression tests using small, deterministic parcels and model cells.
+const fs=require('node:fs');
+const vm=require('node:vm');
+const assert=require('node:assert/strict');
+const html=fs.readFileSync('index.html','utf8');
+const js=html.split('<script>')[1].split('</script>')[0];
+new vm.Script(js);
+const chunk=(a,b)=>html.slice(html.indexOf(a),html.indexOf(b));
+const context=vm.createContext({console,Date,atob,Int16Array,Map,Set,Math,Number});
+vm.runInContext(chunk('const realModelFiles=','async function fetchRealModel')+chunk('const localFormat=','const realPoint=')+chunk('const realPoint=','const realWeatherIcon'),context);
+const run='2026-11-16T00:00:00.000Z',point=[7.82,50.54];
+const packed=(...values)=>{const b=Buffer.alloc(values.length*2);values.forEach((v,i)=>b.writeInt16LE(v,i*2));return b.toString('base64')};
+const field=v=>packed(v,v,v,v);
+const grid={west:7.8,south:50.52,step:.02,nx:2,ny:2,scale:.1,missing:-32768};
+const hours=Array.from({length:49},(_,i)=>i);
+const frames=Object.fromEntries(hours.map(h=>[h,{temp2:field(h===14?130:120),dew:field(80),wind:field(100),gust:field(1600),slp:field(10100),cloud:field(100),rainTotal:field(h*10),t850:field(100),rh850:field(1000),u850:field(30),v850:field(40),u500:field(150),v500:field(200),mlcape:field(10000),srh03:field(1600),dcape:field(5000),ww:field(61)}]));
+const fixture={schema:1,model:'ICON-D2',run,generated:run,grid,hours,frames};Object.assign(context,{fixture,point,run,packed});
+const ev=code=>vm.runInContext(code,context);
+ev(`hourlyModelCache.set('ICON-D2',[validateRealData(fixture,'ICON-D2')]); const now=Date.parse(run)+12.5*HOUR_MS;`);
+assert.deepEqual(Array.from(ev(`[0,1,2,3].map(i=>packedCell(packed(-32768,-3,129,32767),i))`)),[-32768,-3,129,32767]);
+assert.equal(ev(`realModelValue(fixture,{id:'windp850'},...point,12)`),5);
+assert.equal(ev(`realModelValue(fixture,{id:'s850500'},...point,12)`),20);
+assert.ok(Math.abs(ev(`realModelValue(fixture,{id:'winddirp850'},...point,12)`)-216.86989765)<1e-6);
+assert.ok(ev(`realModelValue(fixture,{id:'q850'},...point,12)`)>8);
+assert.equal(ev(`realModelValue(fixture,{id:'lclApprox'},...point,12)`),500);
+assert.equal(ev(`realModelValue(fixture,{id:'ehi03'},...point,12)`),1);
+assert.ok(Number.isNaN(ev(`realModelValue(fixture,{id:'srh01'},...point,12)`)));
+assert.equal(ev(`currentParameterAt('windp850',point,now,null).frame.time`),Date.parse(run)+12*3600000);
+assert.ok(ev(`currentParameterAt('windp850',point,now,null).frame.time<=now`));
+assert.ok(Number.isNaN(ev(`currentParameterAt('windp850',point,Date.parse(run)+36*HOUR_MS,null).value`)));
+// Same model time and cell for derived quantities; never mix sources.
+assert.ok(Number.isNaN(ev(`realModelValue({...fixture,frames:{12:{...fixture.frames[12],v500:undefined}}},{id:'s850500'},...point,12)`)));
+assert.equal(ev(`mapFieldRequirements(fixture,{id:'s850500',interval:0},12).length`),4);
+assert.equal(ev(`forecastPeriod(point,Date.parse(run)+12*HOUR_MS,now,Date.parse(run)+18*HOUR_MS,fixture).hi`),13);
+// Extreme single-model output cannot by itself declare an exceptional event.
+ev(`const frame={d:fixture,hour:14,time:Date.parse(run)+14*HOUR_MS,point};const storm={start:frame.time-HOUR_MS,end:frame.time,frame,hours:1,amount:1};`);
+assert.equal(ev(`localWarnings([{intervals:[storm]}],now,300).find(w=>w.type==='Sturm / Orkan').level`),4);
+assert.equal(ev(`localWarnings([{intervals:[storm]}],now,300).find(w=>w.type==='Sturm / Orkan').exceptionalCandidate`),true);
+assert.equal(ev(`localWarnings([{intervals:[storm]}],Date.parse(run)+20*HOUR_MS,300).length`),0);
+assert.ok(html.indexOf('id="model-canvas"')<html.indexOf('id="map-time-controls"'));
+assert.ok(html.indexOf('id="map-time-controls"')<html.indexOf('id="map-interval"'));
+for(const id of ['map-back','map-next','map-play','map-time'])assert.equal((html.match(new RegExp('id="'+id+'"','g'))||[]).length,1);
+console.log('Syntax, exact signed raster cells, profile diagnostics, no future/stale current data, daily maximum, warning cap and map control placement: OK');
