@@ -162,7 +162,7 @@ def pack(values, scale):
     return base64.b64encode(encoded.tobytes()).decode("ascii")
 
 
-def model_data(model,selected=None,native=False,sink=None):
+def model_data(model,selected=None,native=False,sink=None,core_hours=None):
     cfg=MODELS[model]; hours=cfg["hours"]; x,y=target_grid(cfg)
     stamp,offers=selected or choose_run(model,hours)
     if native:
@@ -193,24 +193,27 @@ def model_data(model,selected=None,native=False,sink=None):
     print(f"{model}: {stamp} · {len(hours)} steps",flush=True)
     frames={}
     for hour in hours:
+        core=core_hours is None or hour in core_hours
         def get(variable):
             if variable=="tot_prec" and hour==0:
                 return variable,None
+            if not core and (stamp,hour) not in offers[variable]:return variable,None
             return variable,read(download(offers[variable][stamp,hour]),hour)
         with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
             fields=dict(pool.map(get,VARIABLES))
-        temp=fields["t_2m"]-273.15
-        dew=fields["td_2m"]-273.15
+        temp=fields["t_2m"]-273.15 if fields['t_2m'] is not None else None
+        dew=fields["td_2m"]-273.15 if fields['td_2m'] is not None else None
         precip=fields["tot_prec"]
-        if precip is None:
+        if hour==0 and precip is None:
             precip=np.where(np.isfinite(temp),0,np.nan)
+        wind=fields['u_10m'] is not None and fields['v_10m'] is not None
         # Preserve true cumulative values; interval amounts are differences.
         frames[str(hour)]={key:pack(value,scale) for key,value,scale in (
-            ("temp2",temp,.1),("dew",dew,.1),("wind",np.hypot(fields["u_10m"],fields["v_10m"])*3.6,.1),
-            ("slp",fields["pmsl"]/100,.1),("rainTotal",precip,.1),("cloud",fields["clct"],.1),
-        )}
+            ("temp2",temp,.1),("dew",dew,.1),("wind",np.hypot(fields["u_10m"],fields["v_10m"])*3.6 if wind else None,.1),
+            ("slp",fields["pmsl"]/100 if fields['pmsl'] is not None else None,.1),("rainTotal",precip,.1),("cloud",fields["clct"],.1),
+        ) if value is not None}
         # Meteorological direction (direction from which the wind blows).
-        frames[str(hour)]["winddir"]=pack((np.degrees(np.arctan2(-fields["u_10m"],-fields["v_10m"]))+360)%360,.1)
+        if wind:frames[str(hour)]["winddir"]=pack((np.degrees(np.arctan2(-fields["u_10m"],-fields["v_10m"]))+360)%360,.1)
         def extra_field(variable):
             url=extra_offers[variable].get((stamp,hour))
             if not url:return None
@@ -245,7 +248,7 @@ def model_data(model,selected=None,native=False,sink=None):
                 pressure[key]=np.divide(pressure[f't{low}']-pressure['t500'],thickness,out=np.full_like(thickness,np.nan),where=thickness>0)
         for key,value in pressure.items():
             frames[str(hour)][key]=pack(value,.1)
-        if not np.isfinite(temp).any():
+        if core and (temp is None or not np.isfinite(temp).any()):
             raise ValueError("Empty temperature field")
         if sink is not None:sink(grid,hour,frames.pop(str(hour)),{key:scale for key,_,_,scale in EXTRA.values()})
         print(f"{model} +{hour:03d}h",flush=True)
@@ -268,3 +271,4 @@ def main():
 
 if __name__=="__main__":
     main()
+

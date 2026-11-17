@@ -62,20 +62,21 @@ def get(url):
 
 def filename(run,h):return f'gfs.t{run:%H}z.pgrb2.0p25.f{h:03d}'
 
-def choose_run():
+def choose_run(hours=HOURS):
     now=dt.datetime.now(dt.timezone.utc);base=now.replace(hour=now.hour//6*6,minute=0,second=0,microsecond=0)
     for i in range(8):
         run=base-dt.timedelta(hours=6*i)
         try:
-            url=f'{BUCKET}/gfs.{run:%Y%m%d}/{run:%H}/atmos/{filename(run,HOURS[-1])}.idx'
+            url=f'{BUCKET}/gfs.{run:%Y%m%d}/{run:%H}/atmos/{filename(run,hours[-1])}.idx'
             if b':TMP:2 m above ground:' in get(url):return run
         except Exception as e:print(f'{run}: {e}',flush=True)
     raise RuntimeError('No complete GFS run')
 
 def subset(run,h):
-    params=dict(file=filename(run,h),dir=f'/gfs.{run:%Y%m%d}/{run:%H}/atmos',subregion='',leftlon=-25,rightlon=42,toplat=71,bottomlat=34)
+    params=dict(file=filename(run,h),dir=f'/gfs.{run:%Y%m%d}/{run:%H}/atmos',subregion='',leftlon=float(X[0]),rightlon=float(X[-1]),toplat=float(Y[-1]),bottomlat=float(Y[0]))
     params.update({f'var_{v}':'on' for v in VARS});params.update({f'lev_{v}':'on' for v in LEVELS})
-    url=ROOT+'?'+urllib.parse.urlencode(params)
+    endpoint=ROOT.replace('filter_gfs_0p25.pl','filter_gfs_0p25_1hr.pl') if h%3 else ROOT
+    url=endpoint+'?'+urllib.parse.urlencode(params)
     # NOMADS requests are intentionally serial and spaced out.
     for attempt in range(3):
         time.sleep(10)
@@ -104,6 +105,16 @@ def sample(gid):
     v=v[np.ix_(yi,xi)].astype(float);v[(v==ec.codes_get_double(gid,'missingValue'))|(~np.isfinite(v))|(np.abs(v)>1e8)]=np.nan
     return v
 
+def cumulative_at(hour,windows,history):
+    # GRIB accumulation windows may reset every 6h or span a single hour.
+    # Recover totals only from a known accumulation anchor, never interpolate.
+    for start in sorted(windows,reverse=True):
+        if start not in history:continue
+        total=history[start]+windows[start]
+        prior=history[max(history)]
+        return np.where(total>=prior-.15,np.maximum(total,prior),np.nan)
+    return None
+
 def frame(run,h,previous):
     fields={};types={};accum={}
     with tempfile.TemporaryFile() as f:
@@ -131,7 +142,7 @@ def frame(run,h,previous):
                 key,factor,offset,_=spec
                 if key in ('rainInterval','convInterval'):
                     start=ec.codes_get_long(g,'startStep')
-                    if h and start in (0,h-6):accum.setdefault(key,{})[start]=sample(g)*factor+offset
+                    if 0<=start<h:accum.setdefault(key,{})[start]=sample(g)*factor+offset
                     continue
                 if key in fields:continue
                 fields[key]=sample(g)*factor+offset
@@ -141,14 +152,14 @@ def frame(run,h,previous):
         fields['convInterval']=fields['rainInterval'].copy()
     else:
         for key,options in accum.items():
-            if h-6 in options:fields[key]=options[h-6]
-            elif 0 in options and key in previous:fields[key]=options[0]-previous[key]
+            history=previous.get(key,{})
+            if history:
+                total=cumulative_at(h,options,history)
+                if total is not None:fields[key]=total
     if not CORE<=fields.keys():raise RuntimeError(f'GFS +{h} missing {CORE-fields.keys()}, obtained {sorted(fields)}')
     for key,total in [('rainInterval','rainTotal'),('convInterval','convTotal')]:
         if key in fields:
-            interval=fields.pop(key);interval=np.where(interval>=-.15,np.maximum(0,interval),np.nan)
-            previous[key]=previous.get(key,0)+interval;fields[total]=previous[key]
-        elif key in previous:previous[key]=np.full_like(fields['temp2'],np.nan)
+            value=fields.pop(key);previous.setdefault(key,{})[h]=value;fields[total]=value
     u,v=fields.pop('u10'),fields.pop('v10');fields['wind']=np.hypot(u,v)*3.6;fields['winddir']=(np.degrees(np.arctan2(-u,-v))+360)%360
     if 'u100' in fields and 'v100' in fields:fields['wind100']=np.hypot(fields.pop('u100'),fields.pop('v100'))*3.6
     if 'u300' in fields and 'v300' in fields:fields['jet']=np.hypot(fields['u300'],fields['v300'])
@@ -175,3 +186,4 @@ def main():
     os.replace(temp,out)
 
 if __name__=='__main__':main()
+

@@ -1432,8 +1432,14 @@ function supplementalWeatherField(d,h){
  return extra.frames?.[h];
 }
 const nativeMapModels=new Map(),nativeMapChecks=new Map(),nativeMapLoading=new Map(),nativeFieldLoading=new Map();
-function mapModelRuns(model){
- const native=[nativeMapModels.get(realModelFiles[model]),...(model==='IFS'?[nativeMapModels.get('ifs-short')]:[])].filter(Boolean).sort((a,b)=>Date.parse(b.run)-Date.parse(a.run));
+const germanyMapFiles=new Set(['icon-d2','icon-eu','gfs','ifs','ifs-short']);
+const mapFiles=model=>[realModelFiles[model],...(model==='IFS'?['ifs-short']:[])].filter(Boolean);
+const germanyMapRegion=()=>typeof mapRegion!=='undefined'&&mapRegion==='Deutschland';
+function mapModelRuns(model,germany=germanyMapRegion()){
+ const files=mapFiles(model),order=(a,b)=>Date.parse(b.run)-Date.parse(a.run);
+ const detailed=germany?files.map(f=>nativeMapModels.get(f+'-de')).filter(d=>d&&mapLeadTime(d,d.hours.at(-1))>Date.now()).sort(order):[];
+ if(detailed.length)return detailed;
+ const native=files.map(f=>nativeMapModels.get(f)).filter(Boolean).sort(order);
  return native.length?native:modelRuns(model);
 }
 // A model's initialization time is not the validity time of a forecast.
@@ -1456,10 +1462,11 @@ function validateNativeMapManifest(m,model,file){
  const g=m?.grid;
  if(m?.schema!==2||m.model!==model||!Number.isFinite(Date.parse(m.run))||!Number.isFinite(Date.parse(m.generated))||!g||![g.west,g.south,g.step].every(Number.isFinite)||g.step<=0||g.scale!==.1||g.missing!==-32768||![g.nx,g.ny].every(n=>Number.isInteger(n)&&n>1)||g.nx*g.ny>2000000)throw Error('Ungültiges Originalraster');
  const fields=m.frames,hs=m.hours;
- if(!Array.isArray(hs)||hs.length<2||hs[0]!==0||!hs.every((h,i)=>Number.isInteger(h)&&h===i*hs[1])||hs[1]<=0)throw Error('Ungültige Modellzeiten');
+ if(!Array.isArray(hs)||hs.length<2||hs[0]!==0||!hs.every((h,i)=>Number.isInteger(h)&&(!i||h>hs[i-1])))throw Error('Ungültige Modellzeiten');
+ const coreHours=m.coreHours??hs;if(!Array.isArray(coreHours)||!coreHours.includes(0)||coreHours.some(h=>!hs.includes(h)))throw Error('Ungültige Grundfeldzeiten');
  const fs={};
  for(const h of hs){
-  if(!Array.isArray(fields?.[h])||!['temp2','dew','wind','slp','cloud','rainTotal'].every(k=>fields[h].includes(k)))throw Error('Unvollständiger Originalmodelllauf');
+  if(!Array.isArray(fields?.[h])||!fields[h].length||(coreHours.includes(h)&&!['temp2','dew','wind','slp','cloud','rainTotal'].every(k=>fields[h].includes(k))))throw Error('Unvollständiger Originalmodelllauf');
   fs[h]={};for(const k of fields[h]){
    if(typeof k!=='string'||!/^\w+$/.test(k)||!Number.isFinite(m.scales?.[k])||m.scales[k]<=0)throw Error('Ungültiges Modellfeld');
    fs[h][k]=true;
@@ -1467,9 +1474,10 @@ function validateNativeMapManifest(m,model,file){
  }
  return {...m,frames:fs,nativeMap:true,file,decoded:new Map()};
 }
-async function fetchNativeMapModel(model,force=false){
+async function fetchNativeMapModel(model,force=false,germany=germanyMapRegion()){
  if(!realModelFiles[model])return;
- const files=[realModelFiles[model],...(model==='IFS'?['ifs-short']:[])];
+ const base=mapFiles(model),files=germany?[...base,...base.filter(f=>germanyMapFiles.has(f)).map(f=>f+'-de')]:base;
+ for(const [key,t] of nativeMapChecks)if(Date.now()-t>5*60000)nativeMapChecks.delete(key);
  await Promise.all(files.map(async file=>{
   if(nativeMapLoading.has(file))return nativeMapLoading.get(file);
   if(!force&&Date.now()-(nativeMapChecks.get(file)||0)<2*60000)return;
@@ -1486,8 +1494,13 @@ function diagnosticKeys(id){
  if(/^q\d+$/.test(id)){const lev=id.slice(1);return ['t'+lev,'rh'+lev]}
  return ({tt:['t850','rh850','t500'],ki:['t850','rh850','t700','rh700','t500'],s850500:['u850','v850','u500','v500'],lclApprox:['temp2','dew'],ehi03:['mlcape','srh03'],dcapeSpeed:['dcape']})[id]||null;
 }
+function mapInterval(d,id,h){
+ const key=id==='radiation'?'solarTotal':'rainTotal',before=d.hours.filter(t=>t<h&&d.frames?.[t]?.[key]).at(-1);
+ return Number.isFinite(before)?h-before:NaN;
+}
 function mapFieldRequirements(d,p,h){
- const id=p.id==='rh'?'rh2':p.id,step=d.hours[1],interval=id==='rainrate'||id==='radiation'?step:/^rain\d+$/.test(id)||id==='conv'||id==='strat'?p.interval:0;
+ const id=p.id==='rh'?'rh2':p.id,dynamic=id==='rainrate'||id==='radiation',interval=dynamic?mapInterval(d,id,h):/^rain\d+$/.test(id)||id==='conv'||id==='strat'?p.interval:0;
+ if(dynamic&&!Number.isFinite(interval))return [[-1,id==='radiation'?'solarTotal':'rainTotal']];
  const keys=diagnosticKeys(id)|| (id==='radiation'?['solarTotal']:id==='conv'?['convTotal']:id==='strat'?['convTotal','rainTotal']:interval?['rainTotal']:[id]);
  return keys.flatMap(k=>interval?[[h,k],[h-interval,k]]:[[h,k]]);
 }
@@ -1522,6 +1535,14 @@ let selectedMapRun=null;
 function futureMapHours(d,p,now=Date.now()){
  if(!d||!p)return [];
  return d.hours.filter(h=>mapLeadTime(d,h)>now&&mapFieldRequirements(d,p,h).every(([t,k])=>!!d.frames?.[t]?.[k]));
+}
+function mapCadence(d,p){
+ if(!d)return '';
+ const hours=d.hours.filter(h=>mapFieldRequirements(d,p,h).every(([t,k])=>!!d.frames?.[t]?.[k]));
+ if(hours.length<2)return '';
+ const runs=[];
+ for(let i=1;i<hours.length;i++){const step=hours[i]-hours[i-1],last=runs.at(-1);if(last?.step===step)last.end=hours[i];else runs.push({step,end:hours[i]})}
+ return 'Original-Zeitschritte: '+runs.map((r,i)=>r.step+' h'+(i<runs.length-1?' bis +'+r.end+' h':'')).join(', danach ');
 }
 function nextMapSelection(d,hours,target=null,now=Date.now()){
  if(!d||!hours.length)return {hour:NaN,target};
@@ -1578,14 +1599,14 @@ function realModelValue(d,p,lon,lat,h){
  }
  const diagnostic=derivedPointValue(p.id,id=>read(h,id));if(diagnostic!==null)return diagnostic;
  if(p.id==='rainrate'||(/^rain\d+$/.test(p.id))){
-  const interval=p.id==='rainrate'?d.hours[1]-d.hours[0]:p.interval;
-  if(h<interval)return NaN;const amount=read(h,'rainTotal')-read(h-interval,'rainTotal');
+  const interval=p.id==='rainrate'?mapInterval(d,p.id,h):p.interval;
+  if(!Number.isFinite(interval)||h<interval)return NaN;const amount=read(h,'rainTotal')-read(h-interval,'rainTotal');
   if(amount<-.5)return NaN;return Math.max(0,amount)/(p.id==='rainrate'?interval:1);
  }
  if(p.id==='radiation'||p.id==='conv'||p.id==='strat'){
-  const interval=p.id==='radiation'?d.hours[1]-d.hours[0]:p.interval||24;
+  const interval=p.id==='radiation'?mapInterval(d,p.id,h):p.interval||24;
   const delta=id=>read(h,id)-read(h-interval,id);
-  if(h<interval)return NaN;
+  if(!Number.isFinite(interval)||h<interval)return NaN;
   if(p.id==='radiation'){const amount=delta('solarTotal');return amount>=0?amount*1000/(interval*3600):NaN}
   const conv=delta('convTotal'),total=delta('rainTotal');
   if(!Number.isFinite(conv)||conv<-.15)return NaN;
@@ -1824,8 +1845,8 @@ async function fetchPointProfile(point,preferred){
  if(pointProfileTask||key===pointProfileKey&&Date.now()-pointProfileCheck<120000)return;
  pointProfileKey=key;pointProfileCheck=Date.now();
  pointProfileTask=(async()=>{
-  await fetchNativeMapModel(model);const now=Date.now();
-  const d=mapModelRuns(model).find(d=>d.nativeMap&&now-Date.parse(d.run)<=modelAgeLimit(d.model)*HOUR_MS&&Date.parse(d.run)<=now);if(!d)return;
+  await fetchNativeMapModel(model,false,false);const now=Date.now();
+  const d=mapModelRuns(model,false).find(d=>d.nativeMap&&now-Date.parse(d.run)<=modelAgeLimit(d.model)*HOUR_MS&&Date.parse(d.run)<=now);if(!d)return;
   const hour=d.hours.filter(h=>Date.parse(d.run)+h*HOUR_MS<=now).at(-1),time=Date.parse(d.run)+hour*HOUR_MS,g=d.grid;
   const x=Math.round((point[0]-g.west)/g.step),y=Math.round((point[1]-g.south)/g.step);if(!Number.isFinite(time)||now-time>6*HOUR_MS||x<0||y<0||x>=g.nx||y>=g.ny)return;
   const n=y*g.nx+x,previous=pointProfile,profileKey=d.file+'/'+d.generated+'/'+hour+'/'+point.join('/');if(previous?.profileKey===profileKey&&previous.complete)return;
@@ -2681,13 +2702,14 @@ function mapLabels(){
  el('map-live-controls').hidden=mapSource!=='live'||terrainMode==='topo';
  el('map-data-notice').textContent=mapSource==='live'?'Demo · keine Messdaten':status.label;
  document.querySelectorAll('[data-map-source]').forEach(b=>{const on=b.dataset.mapSource===mapSource;b.classList.toggle('active',on);b.setAttribute('aria-pressed',String(on))});
- el('map-view-description').textContent=terrainMode==='topo'?'Echtes Geländemodell · Höhen in Metern':status.detail;
+ const cadence=realForecastMap()?mapCadence(realData(),p):'';
+ el('map-view-description').textContent=terrainMode==='topo'?'Echtes Geländemodell · Höhen in Metern':status.detail+(cadence?' · '+cadence:'');
  el('map-gesture-hint').textContent='Ziehen zum Verschieben · Zwei Finger zum Zoomen · Antippen zum Ablesen '+(terrainMode==='topo'?'der Geländehöhe':'eines Modellrasterwerts');
  const date=modelValidDate();
  el('map-time-label').textContent=modelDataMode==='real'?(date?forecastTimeText(date):'Keine Prognose'):'+'+mapHour+' Std.';
  el('map-valid').textContent=date?'Gültig: '+(modelDataMode==='real'?forecastTimeText(date):timeText(date)):'Keine zukünftige Prognose verfügbar';
  const n=p.id==='rainTotal'?mapHour:p.interval,available=realData()&&realModelSupported(p,effectiveModel().step,effectiveModel().max);
- el('map-interval').textContent=modelDataMode==='real'&&!available?'Für diesen Parameter sind keine zukünftigen Realdaten verfügbar.':date&&n>0?'Summenzeitraum: '+(modelDataMode==='real'?forecastTimeText(new Date(date.getTime()-n*3600000))+' – '+forecastTimeText(date):timeText(new Date(date.getTime()-n*3600000))+' – '+timeText(date)):(p.id==='rainTotal'?'Summe seit Modellstart: 0 mm':p.id==='rainrate'?(modelDataMode==='real'?'Mittlere Niederschlagsrate · letzte '+effectiveModel().step+' h':'Momentane Rate (mm/h)'):'');
+ el('map-interval').textContent=modelDataMode==='real'&&!available?'Für diesen Parameter sind keine zukünftigen Realdaten verfügbar.':date&&n>0?'Summenzeitraum: '+(modelDataMode==='real'?forecastTimeText(new Date(date.getTime()-n*3600000))+' – '+forecastTimeText(date):timeText(new Date(date.getTime()-n*3600000))+' – '+timeText(date)):(p.id==='rainTotal'?'Summe seit Modellstart: 0 mm':p.id==='rainrate'?(modelDataMode==='real'?'Mittlere Niederschlagsrate · letzte '+mapInterval(realData(),p.id,mapHour)+' h':'Momentane Rate (mm/h)'):'');
  if(terrainMode==='topo')el('map-interval').textContent='';
  if(mapSource==='live'&&terrainMode!=='topo'){
   el('map-weather-controls').hidden=true;
@@ -2738,7 +2760,7 @@ function openMapLayer(id,model,frame=null){stopPlay();mapSource='model';if(terra
 modelSelect.addEventListener('change',()=>{stopPlay();selectedMapRun=null;mapModel=modelSelect.value;renderMap();if(modelDataMode==='real')fetchRealModel(mapModel)});
 parameterSelect.addEventListener('change',()=>{stopPlay();mapLayer=parameterSelect.value;renderMap()});
 el('map-run').addEventListener('change',e=>{if(modelDataMode==='real'){selectedMapRun=e.target.value==='auto'?null:Number(e.target.value);realModelRevision++;renderMap()}else{mapRun=+e.target.value;scheduleMap()}});
-document.querySelectorAll('[data-region]').forEach(b=>b.addEventListener('click',()=>{stopPlay();mapRegion=b.dataset.region;mapZoom=1;mapCenter=null;mapPoint=null;mapPointName='';renderMap();if(mapSource==='model'&&modelDataMode==='real')fetchRealModel(mapModel)}));
+document.querySelectorAll('[data-region]').forEach(b=>b.addEventListener('click',()=>{stopPlay();mapRegion=b.dataset.region;selectedMapRun=null;mapZoom=1;mapCenter=null;mapPoint=null;mapPointName='';renderMap();if(mapSource==='model'&&modelDataMode==='real')fetchNativeMapModel(mapModel)}));
 document.querySelectorAll('[data-map-source]').forEach(b=>b.addEventListener('click',()=>setMapSource(b.dataset.mapSource)));
 el('map-live-layer').addEventListener('change',e=>selectLiveLayer(e.target.value));
 el('map-live-scenario').addEventListener('change',e=>{stopPlay();liveScenario=e.target.value;resetLiveTime();scheduleMap()});
@@ -2869,4 +2891,5 @@ weatherRealEnabled=true;initPreferences();initModelData();initWeatherData();init
 </script>
 </body>
 </html>
+
 

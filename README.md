@@ -8,10 +8,10 @@ Deutschland-Ausschnitt; die Raster sind nicht die native Modellauflösung.
 
 | Modell | Quelle | Karten-Zeitschritte | Horizont |
 | --- | --- | --- | --- |
-| ICON-D2 | DWD Open Data | 3 h; separate Stundenwerte | 48 h |
-| ICON-EU | DWD Open Data | 6 h; separate Stundenwerte | 120 h |
-| IFS | ECMWF Open Data | 6 h | 240 h (06/18 UTC: 90 h) |
-| GFS | NOAA/NCEP NOMADS | 6 h | 240 h |
+| ICON-D2 | DWD Open Data | Deutschland: 1 h | 48 h |
+| ICON-EU | DWD Open Data | Deutschland: 1 h bis +78 h, danach 3 h; Wind ggf. durchgehend stündlich | 120 h |
+| IFS | ECMWF Open Data | Deutschland: 3 h bis +144 h, danach 6 h | 360 h (06/18 UTC: 90 h) |
+| GFS | NOAA/NCEP NOMADS | Deutschland: 1 h bis +120 h, danach 3 h | 384 h |
 | AIFS | ECMWF Open Data (Single) | 6 h | 360 h |
 | AIFS-ENS Control | ECMWF Open Data (Kontrolllauf) | 6 h | 360 h |
 
@@ -19,6 +19,13 @@ AIFS-ENS Control ist der ungestörte Kontrolllauf, keine Berechnung des
 Ensemblemittels, der Streuung oder von Wahrscheinlichkeiten. Die KI-Modelle
 werden bei Bedarf geladen; automatisierte GitHub-Workflows veröffentlichen
 erst vollständige Grundfelder aus einem konsistenten Lauf.
+
+Die Deutschland-Karten verwenden separate, geografisch zugeschnittene Originalraster
+mit den tatsächlichen Zeitpunkten pro Parameter. Die Europa- und Ortsdaten behalten
+ihre bestehende Struktur. Keine zeitliche Interpolation der Karten. Die erzeugten
+Deutschland-Snapshots enthalten keine duplizierten Ortskacheln und ersetzen bei
+vollständigem Import den vorigen Datenstand. Vergangene Zeiten sind als Karten nicht
+auswählbar; notwendige frühere Eingaben für Niederschlagssummen bleiben erhalten.
 
 ## Datenqualität
 
@@ -47,3 +54,4 @@ Es werden keine API-Schlüssel oder kostenpflichtigen Wetter-APIs verwendet.
 Open-Data-Lizenzen bedeuten nicht, dass alle Hosting- oder Rechenkosten bei
 großen Nutzerzahlen entfallen. Kommerzielle Drittdienste (z. B. SuperHD) sind
 ohne geklärte Rechte nicht integriert.
+
