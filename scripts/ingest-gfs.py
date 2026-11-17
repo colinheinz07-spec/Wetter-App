@@ -35,6 +35,8 @@ field(2,2,103,10,'u10');field(2,3,103,10,'v10')
 field(2,2,103,100,'u100');field(2,3,103,100,'v100')
 field(2,22,1,0,'gust',3.6)
 field(3,1,101,0,'slp',.01)
+field(3,0,1,0,'ps',.01)
+field(3,5,1,0,'orog',scale=1)
 field(6,1,200,0,'cloud');field(6,1,10,0,'cloud')
 field(6,1,214,0,'lowcloud');field(6,1,224,0,'midcloud');field(6,1,234,0,'highcloud')
 field(1,8,1,0,'rainInterval');field(1,10,1,0,'convInterval')
@@ -46,11 +48,11 @@ field(7,6,108,0,'mlcape',scale=1);field(7,7,108,0,'mlcin',scale=1)
 field(7,10,1,0,'li');field(3,5,4,0,'freezing',scale=1)
 field(16,196,10,0,'reflectivity');field(16,196,200,0,'reflectivity')
 field(2,2,100,30000,'u300');field(2,3,100,30000,'v300')
-for lev in (925,850,700,500,300,250,200):
+for lev in (1000,975,950,925,900,850,800,700,600,500,400,300,250,200,150,100):
     for cat,num,key,factor,offset in [(0,0,'t',1,-273.15),(1,1,'rh',1,0),(3,5,'z',.1,0),(2,2,'u',1,0),(2,3,'v',1,0)]:
         field(cat,num,100,lev*100,f'{key}{lev}',factor,offset)
 
-VARS = 'TMP DPT RH UGRD VGRD PRMSL TCDC LCDC MCDC HCDC APCP ACPCP PWAT SNOD WEASD VIS CAPE CIN LFTX HGT GUST REFC CRAIN CSNOW CFRZR CICEP'.split()
+VARS = 'TMP DPT RH UGRD VGRD PRMSL PRES TCDC LCDC MCDC HCDC APCP ACPCP PWAT SNOD WEASD VIS CAPE CIN LFTX HGT GUST REFC CRAIN CSNOW CFRZR CICEP'.split()
 LEVELS = ['surface','2_m_above_ground','10_m_above_ground','100_m_above_ground','mean_sea_level','entire_atmosphere','entire_atmosphere_(considered_as_a_single_layer)','low_cloud_layer','middle_cloud_layer','high_cloud_layer','0C_isotherm','180-0_mb_above_ground']+[f'{x}_mb' for x in (925,850,700,500,300,250,200)]
 CORE = {'temp2','dew','slp','cloud','u10','v10','rainInterval'}
 SCALES = {spec[0]:spec[3] for spec in SPECS.values() if spec[3]!=.1}
@@ -74,7 +76,8 @@ def choose_run(hours=HOURS):
 
 def subset(run,h):
     params=dict(file=filename(run,h),dir=f'/gfs.{run:%Y%m%d}/{run:%H}/atmos',subregion='',leftlon=float(X[0]),rightlon=float(X[-1]),toplat=float(Y[-1]),bottomlat=float(Y[0]))
-    params.update({f'var_{v}':'on' for v in VARS});params.update({f'lev_{v}':'on' for v in LEVELS})
+    levels=LEVELS+([f'{x}_mb' for x in (1000,975,950,900,800,600,400,150,100)] if NATIVE_STEP is not None else [])
+    params.update({f'var_{v}':'on' for v in VARS});params.update({f'lev_{v}':'on' for v in levels})
     endpoint=ROOT.replace('filter_gfs_0p25.pl','filter_gfs_0p25_1hr.pl') if h%3 else ROOT
     url=endpoint+'?'+urllib.parse.urlencode(params)
     # NOMADS requests are intentionally serial and spaced out.

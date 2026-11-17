@@ -61,14 +61,14 @@ jobs:
             test "$(git -C "$dir" show -s --format=%s FETCH_HEAD)" = "Generated native map snapshot $MODEL"
             test "$(git -C "$dir" show -s --format=%ae FETCH_HEAD)" = "41898282+github-actions[bot]@users.noreply.github.com"
             test -z "$(git -C "$dir" cat-file -p FETCH_HEAD | sed -n '/^parent /p')"
-            git -C "$dir" show FETCH_HEAD:index.json | python -c 'import json,sys; print(json.load(sys.stdin)["run"])' > "$RUNNER_TEMP/native-previous-run"
+            git -C "$dir" show FETCH_HEAD:index.json | python -c 'import json,sys; m=json.load(sys.stdin); print(m["run"] if m.get("profileVersion")==2 else "")' > "$RUNNER_TEMP/native-previous-run"
           fi
           printf '%s\n' "$old" > "$RUNNER_TEMP/native-old"
       - name: Import source-resolution weather fields
         run: |
           args=()
           if [ '${{ matrix.suffix }}' = '-de' ]; then args+=(--germany); fi
-          if [ -s "$RUNNER_TEMP/native-previous-run" ]; then args+=(--previous-run "$(< "$RUNNER_TEMP/native-previous-run")"); fi
+          if [ -s "$RUNNER_TEMP/native-previous-run" ]; then previous=$(< "$RUNNER_TEMP/native-previous-run"); if [ -n "$previous" ]; then args+=(--previous-run "$previous"); fi; fi
           if [ '${{ github.event_name }}' = 'pull_request' ]; then
             python scripts/ingest-native-maps.py --model '${{ matrix.model }}' --output "$RUNNER_TEMP/native-maps" --max-steps 2 "${args[@]}"
           else

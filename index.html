@@ -1750,7 +1750,7 @@ function fetchLocationForecast(p,force=false){
  // Load the two hourly location packets first. Global/AI packs are small and
  // follow separately so that they cannot block the current-weather card.
  for(const model of regional)fetchLocationTile(p,model,hourly(model)+'anchor/');
- setTimeout(()=>{if(pointKey(homeLocationPoint(location))!==key)return;for(const model of forecastPriority)fetchLocationTile(p,model,base+'generated-native-'+realModelFiles[model]+'/');fetchLocationTile(p,'IFS',base+'generated-native-ifs-short/');},350);
+ setTimeout(()=>{if(pointKey(homeLocationPoint(location))!==key)return;for(const model of forecastPriority)fetchLocationTile(p,model,base+'generated-native-'+realModelFiles[model]+'/');fetchLocationTile(p,'IFS',base+'generated-native-ifs-short/');fetchLocationTile(p,'GFS',base+'generated-native-gfs-de/');},350);
  // Existing deployments without the new point snapshots still work. Delay
  // the heavy country rasters; only fall back for missing current/long-range coverage.
  setTimeout(()=>{if(pointKey(homeLocationPoint(location))!==key)return;const now=Date.now(),current=currentGridFrame(p,now);
@@ -1758,7 +1758,7 @@ function fetchLocationForecast(p,force=false){
   if(!pointRuns('IFS',p).some(d=>Date.parse(d.run)+d.hours.at(-1)*HOUR_MS>=localBoundary(now,7,0)))fetchRealModel('IFS',true);
   if(!pointRuns('GFS',p).length)fetchRealModel('GFS',true);
  },2500);
- Promise.allSettled(first).then(()=>{if(pointKey(homeLocationPoint(location))===key)refreshPointUI()});
+ Promise.allSettled(first).then(()=>{if(pointKey(homeLocationPoint(location))!==key)return;const now=Date.now(),start=Math.floor(now/3600000)*3600000,end=start+24*3600000;const coverage=regional.some(model=>locationRuns(model,p).some(d=>d.hours[1]===1&&Date.parse(d.run)<=start&&Date.parse(d.run)+d.hours.at(-1)*3600000>=end&&now-Date.parse(d.run)<=modelAgeLimit(model)*3600000));if(!coverage){fetchHourlyModel('ICON-D2');fetchHourlyModel('ICON-EU')}refreshPointUI()});
 }
 function chooseLocationModel(t,p,preferFuture=false,models=forecastPriority){
  if(!p)return null;
@@ -1829,6 +1829,67 @@ function parameterAt(id,point,time,preferred,interval=0){
 // Native point profiles are sampled from the original map payload at the
 // selected coordinate. Keep just one Int16 per field, never dozens of full grids.
 let pointProfile=null,pointProfileTask=null,pointProfileCheck=0,pointProfileKey='';
+const profileLevels=[1000,975,950,925,900,850,800,700,600,500,400,300,250,200,150,100];
+const profileFields=new Set(['s01','s03','s06','srh01','srh03','stormrel','lcl','lfc','el','cape','cin','li','thetae','lapse','lapse7','freezing','ehi03']);
+// Derive point diagnostics from ONE model, initialization, cell and time.
+// Height interpolation is vertical only; never interpolate model times.
+function calculateExpertProfile(read,terrain=NaN){
+ const out={},t=read('temp2'),td=read('dew'),speed=read('wind')/3.6,dir=read('winddir')*Math.PI/180;
+ const ground=Number.isFinite(read('orog'))?read('orog'):terrain;
+ const levels=profileLevels.map(p=>({p,z:read('z'+p)*10,t:read('t'+p),rh:read('rh'+p),u:read('u'+p),v:read('v'+p)}));
+ const e=(t,rh=100)=>rh/100*6.112*Math.exp(17.67*t/(t+243.5));
+ const mixing=(p,t,rh)=>{const v=e(t,rh);return v>=0&&v<p ? .622*v/(p-v) : NaN};
+ const theta=(p,t,rh)=>{const v=e(t,rh),r=mixing(p,t,rh),a=Math.log(v/6.112),d=243.5*a/(17.67-a)+273.15,k=t+273.15,tl=1/(1/(d-56)+Math.log(k/d)/800)+56;return rh>0&&rh<=100?(k*(1000/(p-v))**(2/7)*(k/tl)**(.28*r))*Math.exp((3036/tl-1.78)*r*(1+.448*r)):NaN};
+ out.thetae=theta(850,read('t850'),read('rh850'));
+ for(const [p,id] of [[850,'lapse'],[700,'lapse7']]){const dz=(read('z500')-read('z'+p))/100;out[id]=dz>0?(read('t'+p)-read('t500'))/dz:NaN}
+ if(Number.isFinite(t)&&Number.isFinite(td)&&td<=t+.3)out.lcl=125*Math.max(0,t-td);
+ if(!Number.isFinite(ground))return out;
+ const above=levels.filter(l=>Number.isFinite(l.z)&&l.z>ground+10).map(l=>({...l,z:l.z-ground})).sort((a,b)=>a.z-b.z);
+ let ps=read('ps');const first=above.find(l=>Number.isFinite(l.t));
+ if(!Number.isFinite(ps)&&first&&Number.isFinite(t))ps=first.p*Math.exp(9.80665*first.z/(287.05*(273.15+(first.t+t)/2)));
+ const u0=Number.isFinite(read('u10'))?read('u10'):-speed*Math.sin(dir),v0=Number.isFinite(read('v10'))?read('v10'):-speed*Math.cos(dir);
+ const winds=[{z:0,u:u0,v:v0},...above.filter(l=>Number.isFinite(l.u)&&Number.isFinite(l.v))];
+ const at=(rows,z,key)=>{const hi=rows.findIndex(r=>r.z>=z);if(hi<0)return NaN;if(rows[hi].z===z)return rows[hi][key];if(!hi)return NaN;const a=rows[hi-1],b=rows[hi];return a[key]+(b[key]-a[key])*(z-a.z)/(b.z-a.z)};
+ const vector=z=>[at(winds,z,'u'),at(winds,z,'v')];
+ for(const [id,z] of [['s01',1000],['s03',3000],['s06',6000]]){const [u,v]=vector(z);out[id]=Math.hypot(u-u0,v-v0)}
+ const meanWind=(a,b)=>{const zs=[a,...winds.filter(r=>r.z>a&&r.z<b).map(r=>r.z),b];return ['u','v'].map(k=>zs.slice(1).reduce((s,z,i)=>s+(at(winds,z,k)+at(winds,zs[i],k))*.5*(z-zs[i]),0)/(b-a))};
+ const low=meanWind(0,500),high=meanWind(5500,6000),mean=meanWind(0,6000),du=high[0]-low[0],dv=high[1]-low[1],mag=Math.hypot(du,dv);
+ if(mag>.1&&[...mean,du,dv].every(Number.isFinite)){
+  const cu=mean[0]+7.5*dv/mag,cv=mean[1]-7.5*du/mag;
+  const srh=depth=>{const zs=[0,...winds.filter(r=>r.z>0&&r.z<depth).map(r=>r.z),depth];return zs.slice(1).reduce((sum,z,i)=>{const [a,b]=vector(zs[i]),[c,d]=vector(z);return sum+(c-cu)*(b-cv)-(a-cu)*(d-cv)},0)};
+  out.srh01=srh(1000);out.srh03=srh(3000);const m=meanWind(0,1000);out.stormrel=Math.hypot(m[0]-cu,m[1]-cv);
+  const ml=read('mlcape');if(Number.isFinite(ml)&&ml>=0)out.ehi03=ml*out.srh03/160000;
+ }
+ // Surface-parcel ascent on the model pressure levels (Bolton LCL and
+ // pseudoadiabatic ascent). Results are profile approximations, not native indices.
+ if(!(ps>400&&ps<1100)||!Number.isFinite(t)||!Number.isFinite(td)||td>t+.3)return out;
+ const env=[{z:0,p:ps,t,rh:Math.max(0,Math.min(100,100*e(td)/e(t)))},...above.filter(l=>l.p<ps&&Number.isFinite(l.t)&&l.rh>=0&&l.rh<=100)];
+ if(env.length<4||env.some((l,i)=>i&&l.p>=env[i-1].p))return out;
+ const tk=t+273.15,tdk=Math.min(td,t)+273.15,tl=1/(1/(tdk-56)+Math.log(tk/tdk)/800)+56,pl=ps*(tl/tk)**(1004/287.05);
+ const altitude=p=>{const i=env.findIndex(l=>l.p<=p);if(i===0)return 0;if(i<0)return NaN;const a=env[i-1],b=env[i];return a.z+(b.z-a.z)*Math.log(p/a.p)/Math.log(b.p/a.p)};
+ const zl=altitude(pl);if(Number.isFinite(zl))out.lcl=zl;
+ for(let i=1;i<env.length;i++){const a=env[i-1],b=env[i];if(a.t>=0&&b.t<0){out.freezing=ground+a.z+(b.z-a.z)*a.t/(a.t-b.t);break}}
+ if(!Number.isFinite(zl))return out;
+ const parcel=p=>{if(p>=pl)return tk*(p/ps)**(287.05/1004);let T=tl,lp=Math.log(pl),target=Math.log(p);while(lp-target>1e-8){const dl=-Math.min(.015,lp-target),r=mixing(Math.exp(lp+dl/2),T-273.15,100);if(!Number.isFinite(r))return NaN;T+=dl*(287.05*T+2.5e6*r)/(1004+(2.5e6)**2*r*.622/(287.05*T*T));lp+=dl}return T};
+ const r0=mixing(ps,td,100),buoy=({p,t,rh})=>{const pt=parcel(p),rp=p>=pl?r0:mixing(p,pt-273.15,100),re=mixing(p,t,rh),tv=(t+273.15)*(1+re/.622)/(1+re),pv=pt*(1+rp/.622)/(1+rp);return 9.80665*(pv-tv)/tv};
+ const l500=env.find(l=>l.p===500);if(l500)out.li=l500.t+273.15-parcel(500);
+ const nodes=env.map(l=>({...l,b:buoy(l)}));if(nodes.some(l=>!Number.isFinite(l.b)))return out;
+ // Insert the LCL explicitly to avoid starting free convection below it.
+ if(zl>0&&!nodes.some(l=>Math.abs(l.z-zl)<1e-6)){const eAt={z:zl,p:pl,t:at(env,zl,'t'),rh:at(env,zl,'rh')};nodes.push({...eAt,b:buoy(eAt)});nodes.sort((a,b)=>a.z-b.z)}
+ let lfc=NaN,el=NaN,cape=0,cin=0;
+ for(let i=1;i<nodes.length;i++){const a=nodes[i-1],b=nodes[i];if(b.z<=zl){cin+=Math.min(0,(a.b+b.b)*.5)*(b.z-a.z);continue}const cross=a.b*b.b<0?a.z+(b.z-a.z)*(-a.b)/(b.b-a.b):NaN;
+  if(!Number.isFinite(lfc)&&(a.b>0||b.b>0))lfc=Math.max(zl,a.b>0?a.z:Number.isFinite(cross)?cross:b.z);
+  if(Number.isFinite(lfc)){if(a.b>0&&b.b<0)el=Number.isFinite(cross)?cross:b.z;if(b.b>0)el=NaN;cape+=a.b>=0&&b.b>=0?(a.b+b.b)*.5*(b.z-a.z):Number.isFinite(cross)?(a.b>0?a.b*(cross-a.z):b.b*(b.z-cross))*.5:0;}else cin+=Math.min(0,(a.b+b.b)*.5)*(b.z-a.z);
+ }
+ if(Number.isFinite(lfc))out.lfc=lfc;if(Number.isFinite(el))out.el=el;
+ if(env.at(-1).p<=200){if(Number.isFinite(el)){out.cape=Math.max(0,cape);out.cin=Math.min(0,cin)}else if(!Number.isFinite(lfc)){out.lfcAbsent=true;out.elAbsent=true;out.cape=0;}}
+ return out;
+}
+const profileCache=new WeakMap();
+function derivedExpertSample(frame,id){
+ if(!frame||!profileFields.has(id)||frame.interpolated)return null;
+ let cache=profileCache.get(frame.d);if(!cache){cache=new Map();profileCache.set(frame.d,cache)}const key=frame.hour+'/'+pointKey(frame.point);if(!cache.has(key)){let terrain=NaN;try{terrain=warningElevation(frame.point)}catch{}cache.set(key,calculateExpertProfile(k=>frameVal(frame,k),terrain));if(cache.size>40)cache.delete(cache.keys().next().value)}const result=cache.get(key);return {value:result[id]??NaN,absent:!!result[id+'Absent']};
+}
 function currentParameterAt(id,point,now,preferred,interval=0){
  const native=pointProfile&&pointProfile.point.every((x,i)=>x===point?.[i])&&pointProfile.time<=now&&now-pointProfile.time<=6*HOUR_MS&&now-Date.parse(pointProfile.d.run)<=modelAgeLimit(pointProfile.d.model)*HOUR_MS?pointProfile:null;
  // Preserve the original time and source of every individual value.
@@ -1836,7 +1897,8 @@ function currentParameterAt(id,point,now,preferred,interval=0){
  for(const frame of frames){if(frame.time>now)continue;const value=frameVal(frame,id,interval);if(Number.isFinite(value))return {frame,value};}
  // Optional diagnostics may be provided every 3/6 h even when the base
  // products are hourly. Search valid past samples instead of inventing them.
- for(const model of forecastPriority)for(const d of locationRuns(model,point)){const run=Date.parse(d.run);if(now-run>modelAgeLimit(model)*HOUR_MS)continue;for(const h of d.hours.filter(h=>run+h*HOUR_MS<=now&&run+h*HOUR_MS>=now-6*HOUR_MS).reverse()){const frame={d,hour:h,time:run+h*HOUR_MS,point},value=frameVal(frame,id,interval);if(Number.isFinite(value))return {frame,value};}}
+ for(const model of forecastPriority)for(const d of locationRuns(model,point)){const run=Date.parse(d.run);if(now-run>modelAgeLimit(model)*HOUR_MS)continue;for(const h of d.hours.filter(h=>run+h*HOUR_MS<=now&&run+h*HOUR_MS>=now-6*HOUR_MS).reverse()){const frame={d,hour:h,time:run+h*HOUR_MS,point},value=frameVal(frame,id,interval);if(Number.isFinite(value))return {frame,value};if(profileFields.has(id))frames.push(frame);}}
+ for(const frame of frames){if(frame.time>now)continue;const derived=derivedExpertSample(frame,id);if(derived&&(Number.isFinite(derived.value)||derived.absent))return {frame,...derived,derived:true};}
  return {frame:null,value:NaN};
 }
 function currentSource(frame){return frame?frame.d.model+' · '+localTime(frame.time,{hour:'2-digit',minute:'2-digit'})+' · '+(frame.d.pointNative||frame.d.nativeMap?'Originalraster':frame.d.grid.step.toLocaleString('de-DE')+'°-Raster'):'Nicht verfügbar'}
@@ -1845,14 +1907,15 @@ async function fetchPointProfile(point,preferred){
  if(pointProfileTask||key===pointProfileKey&&Date.now()-pointProfileCheck<120000)return;
  pointProfileKey=key;pointProfileCheck=Date.now();
  pointProfileTask=(async()=>{
-  await fetchNativeMapModel(model,false,false);const now=Date.now();
-  const d=mapModelRuns(model,false).find(d=>d.nativeMap&&now-Date.parse(d.run)<=modelAgeLimit(d.model)*HOUR_MS&&Date.parse(d.run)<=now);if(!d)return;
-  const hour=d.hours.filter(h=>Date.parse(d.run)+h*HOUR_MS<=now).at(-1),time=Date.parse(d.run)+hour*HOUR_MS,g=d.grid;
+  await fetchNativeMapModel(model,false,true);const now=Date.now();
+  const d=[...mapModelRuns(model,true),...mapModelRuns(model,false)].find(d=>d.nativeMap&&now-Date.parse(d.run)<=modelAgeLimit(d.model)*HOUR_MS&&Date.parse(d.run)<=now&&point[0]>=d.grid.west-d.grid.step/2&&point[0]<=d.grid.west+(d.grid.nx-.5)*d.grid.step&&point[1]>=d.grid.south-d.grid.step/2&&point[1]<=d.grid.south+(d.grid.ny-.5)*d.grid.step);if(!d)return;
+  const hour=d.hours.filter(h=>Date.parse(d.run)+h*HOUR_MS<=now&&d.frames[h]?.temp2).at(-1),time=Date.parse(d.run)+hour*HOUR_MS,g=d.grid;
   const x=Math.round((point[0]-g.west)/g.step),y=Math.round((point[1]-g.south)/g.step);if(!Number.isFinite(time)||now-time>6*HOUR_MS||x<0||y<0||x>=g.nx||y>=g.ny)return;
   const n=y*g.nx+x,previous=pointProfile,profileKey=d.file+'/'+d.generated+'/'+hour+'/'+point.join('/');if(previous?.profileKey===profileKey&&previous.complete)return;
   const local={...d,grid:{...g,west:point[0],south:point[1],nx:1,ny:1},decoded:new Map(previous?.profileKey===profileKey?previous.d.decoded:[])};
   const requested=new Map();const ids=[...new Set([...Object.values(expertMapLinks),'temp2','dew','rh2','wind','winddir','gust','slp','cloud','lowcloud','midcloud','highcloud','tground','visibility','snowdepth','ww','rainrate','rain24','pwat','freezing','snowline','wind100','radiation'])];
   for(const id of ids)for(const [h,k] of mapFieldRequirements(d,fields[id]||{id,interval:0},hour))if(d.frames[h]?.[k])requested.set(h+'/'+k,[h,k]);
+  for(const k of ['orog','ps','u10','v10',...profileLevels.flatMap(p=>['t','rh','z','u','v'].map(f=>f+p))])if(d.frames[hour]?.[k])requested.set(hour+'/'+k,[hour,k]);
   const queue=[...requested.values()].filter(([h,k])=>!local.decoded.has(h+'/'+k));await Promise.all(Array.from({length:4},async()=>{while(queue.length){
    if(homeLocationPoint(location)?.join('/')!==point.join('/'))return;
    const [h,k]=queue.shift(),id=h+'/'+k;let v=d.decoded.get(id)?.[n];
@@ -1973,8 +2036,8 @@ function forecastCandidates(start,end,now,point=null){
   return available.sort((a,b)=>Date.parse(b.run)-Date.parse(a.run)||a.hours[1]-b.hours[1]);
  });
 }
-function forecastPeriod(point,start,now,end=start+6*HOUR_MS,preferred=null){
- const candidates=preferred?[preferred]:forecastCandidates(start,end,now,point),duration=(end-start)/HOUR_MS;
+function forecastPeriod(point,start,now,end=start+6*HOUR_MS,preferred=null,exactHourly=false){
+ const candidates=(preferred?[preferred]:forecastCandidates(start,end,now,point)).filter(d=>!exactHourly||d.hours[1]===1),duration=(end-start)/HOUR_MS;
  const nativeCoverage=d=>{const run=Date.parse(d.run),step=d.hours[1],lo=Math.floor((start-run)/HOUR_MS/step)*step,hi=Math.ceil((end-run)/HOUR_MS/step)*step;return (end<=now||now-run<=modelAgeLimit(d.model)*HOUR_MS)&&d.hours.filter(h=>h>=lo&&h<=hi).every(h=>Number.isFinite(nativeTemperatureValue(d,point,h,'temp2'))&&nativeTemperatureValue(d,point,h,'temp2')!==null);};
  // Keep the local model hierarchy ahead of global resolution. Only fresh
  // forecast cycles may outrank an archive; D2/EU are preferred for 0–48 h.
@@ -2008,10 +2071,16 @@ function forecastPeriod(point,start,now,end=start+6*HOUR_MS,preferred=null){
   const actual=native.filter(f=>f.time>=start&&f.time<end),actualValues=actual.map(f=>nativeTemperatureValue(f.d,point,f.hour,'temp2')),nativeComplete=(end<=now||now-run<=modelAgeLimit(d.model)*HOUR_MS)&&actual.length>0&&actualValues.every(v=>v!==null&&Number.isFinite(v));
   const originalLo=nativeComplete?Math.min(...actualValues,...records('tmin',(a,b)=>a<b-.05,true).filter(Number.isFinite)):NaN,originalHi=nativeComplete?Math.max(...actualValues,...records('tmax',(a,b)=>a>b+.05,true).filter(Number.isFinite)):NaN,originalMean=nativeComplete?actualValues.reduce((s,v)=>s+v,0)/actualValues.length:NaN;
   const extremaComplete=recordLows.length>0&&recordLows.every(Number.isFinite)&&recordHighs.every(Number.isFinite);
-  const result={start,end,duration,rows,intervals,nativeIntervals,step,model:d.model,data:d,raster:temperatureRaster(d,point),temperatureNative:nativeComplete,originalLo,originalHi,originalMean,rainEstimated:intervals.some(r=>r.estimated),temperatureEstimated:step>1,extremaComplete,rain:rain.every(Number.isFinite)?rain.reduce((a,b)=>a+b,0):NaN,mean:mean('temp2'),lo:Math.min(...minimum),hi:Math.max(...maximum),wind:mean('wind'),gust:extreme('gust',Math.max),slp:mean('slp'),cloud:mean('cloud'),snow:extreme('snowdepth',Math.max),representative:dailyWeatherFrame(native.slice(1))};
+  const result={start,end,duration,rows,intervals,nativeIntervals,step,model:d.model,data:d,raster:temperatureRaster(d,point),temperatureNative:nativeComplete,originalLo,originalHi,originalMean,rainEstimated:intervals.some(r=>r.estimated),temperatureEstimated:step>1,extremaComplete,rain:intervals.length&&Math.abs(intervals.reduce((s,r)=>s+r.hours,0)-duration)<1e-6&&rain.every(Number.isFinite)?rain.reduce((a,b)=>a+b,0):NaN,mean:mean('temp2'),lo:Math.min(...minimum),hi:Math.max(...maximum),wind:mean('wind'),gust:extreme('gust',Math.max),slp:mean('slp'),cloud:mean('cloud'),snow:extreme('snowdepth',Math.max),representative:dailyWeatherFrame(native.slice(1))};
   result.weather=forecastIcon(intervals,result.rain,duration,result.cloud,isNightAt((start+end)/2,point));
   if(Number.isFinite(result.rain))return result;
   fallback??=result;
+ }
+ // When a period crosses a model initialization, sum nonoverlapping amounts
+ // from complete hourly intervals, never subtract totals from different runs.
+ if(!preferred&&!exactHourly&&duration>1&&Number.isInteger(duration)){
+  const parts=Array.from({length:duration},(_,i)=>forecastPeriod(point,start+i*HOUR_MS,now,start+(i+1)*HOUR_MS,null,true));
+  if(parts.every(p=>Number.isFinite(p.rain))){const all=(id,fn)=>{const a=parts.map(p=>p[id]);return a.every(Number.isFinite)?fn(a):NaN},sum=a=>a.reduce((s,v)=>s+v,0),mean=a=>sum(a)/a.length,intervals=parts.flatMap(p=>p.intervals),rows=[parts[0].rows[0],...parts.map(p=>p.rows.at(-1))],rain=sum(parts.map(p=>p.rain)),cloud=all('cloud',mean);return {...fallback,start,end,duration,rows,intervals,nativeIntervals:parts.flatMap(p=>p.nativeIntervals),step:1,data:null,model:[...new Set(parts.map(p=>p.model))].join(' / '),raster:'Stundenintervalle · Modellläufe',temperatureNative:parts.every(p=>p.temperatureNative),originalLo:all('originalLo',a=>Math.min(...a)),originalHi:all('originalHi',a=>Math.max(...a)),originalMean:all('originalMean',mean),rainEstimated:false,rain,mean:all('mean',mean),lo:all('lo',a=>Math.min(...a)),hi:all('hi',a=>Math.max(...a)),wind:all('wind',mean),gust:all('gust',a=>Math.max(...a)),slp:all('slp',mean),cloud,snow:all('snow',a=>Math.max(...a)),weather:forecastIcon(intervals,rain,duration,cloud),representative:dailyWeatherFrame(rows)};}
  }
  return fallback||{start,end,duration,rows:[],rain:NaN,mean:NaN};
 }
@@ -2039,9 +2108,9 @@ function upcomingNight(point,now){
  return forecastPeriod(point,Math.max(start,Math.floor(now/HOUR_MS)*HOUR_MS),now,end);
 }
 const periodTemperature=(p,index)=>index===0?p.lo:p.mean;
-function hourlyForecast(days,now){
+function hourlyForecast(days,now,locationPoint=null){
  const periods=days.flatMap(d=>d.periods);
- return Array.from({length:24},(_,i)=>{const start=Math.floor(now/HOUR_MS)*HOUR_MS+i*HOUR_MS,end=start+HOUR_MS,block=periods.find(p=>start>=p.start&&end<=p.end),point=block?.rows[0]?.point||periods.find(p=>p.rows?.length)?.rows[0]?.point,p=point?forecastPeriod(point,start,now,end,block?.data):block,f=p?.data?frameAt(p.data,point,end):null,prev=p?.data?frameAt(p.data,point,start):null;
+ return Array.from({length:24},(_,i)=>{const start=Math.floor(now/HOUR_MS)*HOUR_MS+i*HOUR_MS,end=start+HOUR_MS,block=periods.find(p=>start>=p.start&&end<=p.end),point=locationPoint||block?.rows[0]?.point||periods.find(p=>p.rows?.length)?.rows[0]?.point,exact=point?forecastPeriod(point,start,now,end,null,true):null,p=Number.isFinite(exact?.rain)?exact:point?forecastPeriod(point,start,now,end):block,f=p?.data?frameAt(p.data,point,end):null,prev=p?.data?frameAt(p.data,point,start):null;
   const delta=p?.step===1&&f&&prev?frameVal(f,'rainTotal')-frameVal(prev,'rainTotal'):NaN;
   const rain=delta>=-.5?Math.max(0,delta):NaN,night=isNightAt((start+end)/2,point),coarse=p?.nativeIntervals?.find(r=>start>=r.start&&end<=r.end);
   let weather=Number.isFinite(rain)?forecastIcon(f?[{frame:f,amount:rain,hours:1}]:[],rain,1,frameVal(f,'cloud'),night):frameWeather(f);
@@ -2239,7 +2308,7 @@ function renderRealWeather(){
  const humidity=frameHumidity(f);
  const rainText=radar?(radar.amount>0?'Niederschlag · '+localFormat(radar.rate)+' mm/h':'Trocken laut Radar'):'Radarwert derzeit nicht verfügbar';
  const hero='<section class="panel hero"><div class="hero-head"><span class="tag">'+(f?'ORTSRASTER':'WETTER')+'</span><span class="small">'+source+'</span></div><div class="hero-weather"><div><div class="temp">'+temperatureText(temp)+'<span>°C</span></div><div class="condition">'+(radar?.amount>0&&!/regen|schnee|gewitter|niederschlag/i.test(w.condition)?rainText:f?w.condition:'Ortsprognose wird geladen …')+'</div><div class="feels">'+(radar?'DWD-Radar · '+localTime(radar.time,{hour:'2-digit',minute:'2-digit'})+' · '+rainText:'Modellwert · keine Stationsmessung')+'</div></div>'+realWeatherIcon(f)+'</div><div class="metrics">'+realMetric('wind','Wind (Modell)',wind,'km/h')+realMetric('wind','Böen (Modell)',frameVal(f,'gust'),'km/h')+realMetric('drop','Feuchte (berechnet)',humidity,'%')+'</div></section>';
- const next=hourlyForecast(days,now);selectedHour=Math.min(selectedHour,next.length-1);
+ const next=hourlyForecast(days,now,point);selectedHour=Math.min(selectedHour,next.length-1);
  const night=upcomingNight(point,now),nightHint=Number.isFinite(night.originalLo??night.lo)||Number.isFinite(night.lo)?'<p class="small muted night-summary"><b>Nachtminimum: '+temperatureText(Number.isFinite(night.originalLo)?night.originalLo:night.lo)+' °C</b> · '+localIntervalLabel(night.start,night.end)+' Uhr · '+night.model+' · Lauf '+localTime(Date.parse(night.data.run),{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})+(night.raster?' · '+night.raster:'')+(night.temperatureEstimated?' · zeitlich angenähert':'')+'</p>':'';
  const details=items=>items.map(([label,value])=>'<div class="detail-item">'+label+'<b>'+value+'</b></div>').join('');
  const detail=a=>{const h=a.frame;return details([['Zeitraum (Ortszeit)',localIntervalLabel(a.start,a.end)+' Uhr'],['Modell',a.model?(a.model+' · Lauf '+localTime(Date.parse(h.d.run),{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})+(a.raster?' · '+a.raster:'')+(a.step!==1?' · gröbere Zeitschritte':'')):'—'],['Temperatur am Intervallende',temperatureText(frameVal(h,'temp2'))+' °C'],['Niederschlag (1 h)',localFormat(a.rain)+' mm'],['Taupunkt',temperatureText(frameVal(h,'dew'))+' °C'],['Wind',localFormat(frameVal(h,'wind'))+' km/h'],['Böen',localFormat(frameVal(h,'gust'))+' km/h'],['Bewölkung',localFormat(frameVal(h,'cloud'))+' %'],['Luftdruck NN',localFormat(frameVal(h,'slp'))+' hPa']])};
@@ -2271,7 +2340,7 @@ function renderRealExpert(){
  el('expert-data').querySelectorAll('details').forEach((d,i)=>{if(i<opened.length)d.open=opened[i]});
  document.querySelectorAll('[data-map-layer]').forEach(b=>b.onclick=()=>{const id=b.dataset.mapLayer,sample=currentParameterAt(id,point,now,f,fields[id]?.interval||0);openMapLayer(id,sample.frame?.d.model||f?.d.model,sample.frame)});
 }
-function realExpertGroups(point,now,f){return expertGroups.map(([title,icon,items])=>[title,icon,items.map(([name,_value,unit,desc])=>{const id=expertMapLinks[name],sample=id?currentParameterAt(id,point,now,f,fields[id]?.interval||0):{value:NaN};return [name,displayValue(sample.value,unit),unit,sample.frame?currentSource(sample.frame)+(expertDerivedDescriptions[id]?' · '+expertDerivedDescriptions[id]:''):expertDerivedDescriptions[id]||desc||'Eingangsdaten fehlen'];})]);}
+function realExpertGroups(point,now,f){return expertGroups.map(([title,icon,items])=>[title,icon,items.map(([name,_value,unit,desc])=>{const id=expertMapLinks[name],sample=id?currentParameterAt(id,point,now,f,fields[id]?.interval||0):{value:NaN};const method=sample.derived?(id==='lcl'?'LCL aus T/Td und Profil · Näherung':['thetae','lapse','lapse7'].includes(id)?'Berechnet aus Druckflächen':['srh01','srh03','stormrel','ehi03'].includes(id)?'Bunkers-Rechtsläufer · 0–6-km-Profil · Näherung': ['lfc','el','cape','cin','li'].includes(id)?'Bodenluftpaket · Druckflächenprofil · Näherung':'Druckflächenprofil · vertikale Näherung'+(Number.isFinite(frameVal(sample.frame,'orog'))?' · Modellgelände':' · Geländehöhe')):expertDerivedDescriptions[id];return [name,sample.absent?'Keiner':displayValue(sample.value,unit),sample.absent?'':unit,sample.frame?currentSource(sample.frame)+(method?' · '+method:''):expertDerivedDescriptions[id]||desc||'Eingangsdaten fehlen',!sample.derived&&!!fields[id]];})]);}
 
 // Real observation products and model forecasts, with independent clocks.
 let realLiveEnabled=false,radarRevision=0,directRadarTime=NaN;
@@ -2847,9 +2916,9 @@ document.addEventListener('pointerdown',e=>{if(!el('map-search').contains(e.targ
 
 el('expert-open-map').addEventListener('click',()=>openMapLayer('ki'));
 const expertMapLinks={'SBCAPE':'cape','MLCAPE':'mlcape','MUCAPE':'mucape','SBCIN':'cin','MLCIN':'mlcin','K-Index':'ki','Lifted Index':'li','Total Totals (TT)':'tt','DCAPE':'dcape','Scherung 0–1 km':'s01','Scherung 0–3 km':'s03','Scherung 0–6 km':'s06','SRH 0–1 km':'srh01','SRH 0–3 km':'srh03','Jet (300 hPa)':'jet','T 850 hPa':'t850','T 700 hPa':'t700','T 500 hPa':'t500','Theta-e 850 hPa':'thetae','LCL':'lcl','LFC':'lfc','EL':'el','Lapse Rate 850–500 hPa':'lapse','Lapse Rate 700–500 hPa':'lapse7','Geopotential 500 hPa':'z500','PWAT':'pwat','Rel. Feuchte 850 hPa':'rh850','Rel. Feuchte 700 hPa':'rh700','Rel. Feuchte 500 hPa':'rh500','QPF 24 h':'rain24','Konvektive QPF':'conv','Stratiforme QPF':'strat'};
-Object.assign(expertMapLinks,{'MUCIN':'mucin','Nullgradgrenze':'freezing','Scherung 850–500 hPa':'s850500','LCL (Näherung)':'lclApprox','Energy Helicity Index (EHI 0–3 km)':'ehi03','Ideale Abwindgeschwindigkeit':'dcapeSpeed'});
+Object.assign(expertMapLinks,{'MUCIN':'mucin','Nullgradgrenze':'freezing','Scherung 850–500 hPa':'s850500','LCL (Näherung)':'lclApprox','Energy Helicity Index (EHI 0–3 km)':'ehi03','Ideale Abwindgeschwindigkeit':'dcapeSpeed','Storm-relative Wind':'stormrel'});
 const expertDerivedDescriptions={s850500:'Vektordifferenz der Druckflächen, nicht 0–6 km AGL',lclApprox:'Näherung 125 × (T − Td), keine exakte Paketberechnung',ehi03:'MLCAPE × SRH 0–3 km / 160000; kein Tornadonachweis',dcapeSpeed:'Ideale Energieumwandlung, keine Böenprognose',rain24:'24 h bis zur Modellgültigkeitszeit (rückblickend)',conv:'Letzte 24 Modellstunden',strat:'Letzte 24 Modellstunden'};
-function expertValue(item){const id=expertMapLinks[item[0]],html=parameterValue(item);return id?html.replace('<div class="parameter-value">','<button type="button" class="parameter-value" data-map-layer="'+id+'">').replace(/<\/div>$/,'<span class="param-map-label">'+ui('map',12)+' Karte öffnen</span></button>'):html}
+function expertValue(item){const id=expertMapLinks[item[0]],html=parameterValue(item);return id&&item[4]!==false?html.replace('<div class="parameter-value">','<button type="button" class="parameter-value" data-map-layer="'+id+'">').replace(/<\/div>$/,'<span class="param-map-label">'+ui('map',12)+' Karte öffnen</span></button>'):html}
 function expertParameterGroup([title,icon,items],i){return '<details class="parameter-group" '+(i===0?'open':'')+'><summary><span class="group-icon">'+ui(icon,17)+'</span><span class="group-title">'+title+'</span><span class="group-count">'+items.length+' Werte</span>'+ui('chevron',16,'chev')+'</summary><div class="parameter-grid">'+items.map(expertValue).join('')+'</div></details>'}
 
 

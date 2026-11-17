@@ -19,6 +19,7 @@ jobs:
           node-version: 22
       - run: node scripts/test-forecast.cjs
       - run: node scripts/test-future-map-times.cjs
+      - run: node scripts/test-expert-stability.cjs
       - run: python3 -m pip install numpy --break-system-packages
       - run: python3 scripts/test-native-temperature.py
       - run: python3 scripts/test-map-cadence.py

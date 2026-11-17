@@ -11,7 +11,7 @@ import tempfile
 import numpy as np
 
 CORE = {'temp2', 'dew', 'wind', 'slp', 'cloud', 'rainTotal'}
-SURFACE = CORE | {'winddir', 'gust', 'rh2', 'visibility', 'ww', 'ptype',
+SURFACE = CORE | {'winddir', 'gust', 'rh2', 'visibility', 'ww', 'ptype','orog','ps','u10','v10',
     'lowcloud', 'midcloud', 'highcloud', 'tground', 'ground', 'snowdepth',
     'tmin', 'tmax', 'tsnow', 'snowline', 'freezing', 'mlcape', 'mlcin',
     'cape', 'cin', 'mucape', 'mucin', 'pwat', 'convTotal', 'solarTotal',
@@ -21,7 +21,7 @@ SURFACE = CORE | {'winddir', 'gust', 'rh2', 'visibility', 'ww', 'ptype',
     'u850', 'v850', 'u700', 'v700', 'u500', 'v500', 'snownew', 'wind100',
     'sunhours', 'uv', 'pop', 'li', 'stp', 'scp', 'hail', 'downburst'} | {
     f'{field}{level}' for field in ('t','rh','z','u','v')
-    for level in (925,850,700,500,300,250,200)}
+    for level in (1000,975,950,925,900,850,800,700,600,500,400,300,250,200,150,100)}
 
 class PointTiles:
     def __init__(self, output, model, run, generated, hours, size=24, extrema=None):
@@ -63,3 +63,4 @@ class PointTiles:
             with gzip.open(self.output/f'point-{key}.json.gz','wt',compresslevel=5) as stream: json.dump(packet,stream,separators=(',',':'))
         (self.output/'point-index.json').write_text(json.dumps(self.meta,separators=(',',':')))
         self.temp.cleanup()
+

@@ -178,18 +178,35 @@ def model_data(model,selected=None,native=False,sink=None,core_hours=None):
         if (ix>=len(xx)).any() or (iy>=len(yy)).any() or not np.allclose(xx[ix],x,rtol=0,atol=1e-6) or not np.allclose(yy[iy],y,rtol=0,atol=1e-6):raise ValueError('Native field grid differs')
         if not np.isclose(xx[1]-xx[0],grid['step'],rtol=0,atol=1e-6) or not np.isclose(yy[1]-yy[0],grid['step'],rtol=0,atol=1e-6):raise ValueError('Native field resolution differs')
         return values[np.ix_(iy,ix)]
+    # More low-level pressure surfaces are essential for AGL wind/parcel
+    # profiles. Keep the large legacy European snapshot within its size cap.
+    detailed=native and (model=='icon-d2' or cfg['bounds'][0]>0)
+    extras={**EXTRA,**({'ps':('ps',.01,0,.1)} if native else {})}
+    pressure_specs={v:dict(levels) for v,levels in PRESSURE.items()}
+    if detailed:
+        for v,levels in pressure_specs.items():
+            key,fac,offset=levels[850]
+            levels.update({n:(key[:-3]+str(n),fac,offset) for n in (1000,975,950,900,800,600,400)})
+    orog=None
+    if native:
+        try:
+            directory=f'{ROOT}/{model}/grib/{stamp[-2:]}/hsurf/'
+            matches=re.findall(r'href="([^"]*regular-lat-lon_time-invariant_(\d{10})[^"]*\.grib2\.bz2)"',download(directory).decode('utf8'))
+            name=next(name for name,cycle in matches if cycle==stamp)
+            orog=read(download(directory+name),0)
+        except Exception as exc:print(f'Optional {model} model terrain: {exc}',flush=True)
     def optional_listing(v):
         try: return v,listing(model,stamp[-2:],v)
         except Exception as exc:
             print(f"Optional {model} {v}: {exc}",flush=True);return v,{}
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
-        extra_offers=dict(pool.map(optional_listing,EXTRA))
+        extra_offers=dict(pool.map(optional_listing,extras))
     def pressure_offer(v):
         try:return v,pressure_listing(model,stamp[-2:],v)
         except Exception as exc:
             print(f"Optional pressure {model} {v}: {exc}",flush=True);return v,{}
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
-        pressure_offers=dict(pool.map(pressure_offer,PRESSURE))
+        pressure_offers=dict(pool.map(pressure_offer,pressure_specs))
     print(f"{model}: {stamp} · {len(hours)} steps",flush=True)
     frames={}
     for hour in hours:
@@ -214,11 +231,12 @@ def model_data(model,selected=None,native=False,sink=None,core_hours=None):
         ) if value is not None}
         # Meteorological direction (direction from which the wind blows).
         if wind:frames[str(hour)]["winddir"]=pack((np.degrees(np.arctan2(-fields["u_10m"],-fields["v_10m"]))+360)%360,.1)
+        if orog is not None:frames[str(hour)]['orog']=pack(orog,1)
         def extra_field(variable):
             url=extra_offers[variable].get((stamp,hour))
             if not url:return None
             try:
-                key,factor,offset,scale=EXTRA[variable]
+                key,factor,offset,scale=extras[variable]
                 if key in ('tmin','tmax') and hour==0:return None
                 interval=((hour-1)//6*6,'min' if key=='tmin' else 'max') if key in ('tmin','tmax') else None
                 values=read(download(url),hour,interval)
@@ -226,7 +244,7 @@ def model_data(model,selected=None,native=False,sink=None,core_hours=None):
             except Exception as exc:
                 print(f"Optional {model} {variable} +{hour}: {exc}",flush=True);return None
         with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
-            for result in pool.map(extra_field,EXTRA):
+            for result in pool.map(extra_field,extras):
                 if result:frames[str(hour)][result[0]]=result[1]
         def pressure_field(entry):
             variable,level,spec=entry
@@ -239,7 +257,7 @@ def model_data(model,selected=None,native=False,sink=None,core_hours=None):
             except Exception as exc:
                 print(f"Optional pressure {model} {variable} {level} +{hour}: {exc}",flush=True);return None
         with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
-            pressure=dict(r for r in pool.map(pressure_field,[(v,l,s) for v,levels in PRESSURE.items() for l,s in levels.items()]) if r)
+            pressure=dict(r for r in pool.map(pressure_field,[(v,l,s) for v,levels in pressure_specs.items() for l,s in levels.items()]) if r)
         if 'u300' in pressure and 'v300' in pressure:
             pressure['jet']=np.hypot(pressure['u300'],pressure['v300'])
         for low,key in [(850,'lapse'),(700,'lapse7')]:
@@ -250,7 +268,7 @@ def model_data(model,selected=None,native=False,sink=None,core_hours=None):
             frames[str(hour)][key]=pack(value,.1)
         if core and (temp is None or not np.isfinite(temp).any()):
             raise ValueError("Empty temperature field")
-        if sink is not None:sink(grid,hour,frames.pop(str(hour)),{key:scale for key,_,_,scale in EXTRA.values()})
+        if sink is not None:sink(grid,hour,frames.pop(str(hour)),{**{key:scale for key,_,_,scale in extras.values()},'orog':1})
         print(f"{model} +{hour:03d}h",flush=True)
     start=dt.datetime.strptime(stamp,"%Y%m%d%H").replace(tzinfo=dt.timezone.utc)
     return dict(schema=1,model=cfg["name"],source="Deutscher Wetterdienst (DWD) Open Data",sourceUrl=f"{ROOT}/{model}/",run=start.isoformat(),generated=dt.datetime.now(dt.timezone.utc).isoformat(),grid=grid,scales={key:scale for key,_,_,scale in EXTRA.values()},extremaWindowHours=6,hours=hours,frames=frames)

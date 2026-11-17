@@ -25,12 +25,14 @@ def germany_hours(model):
     return list(range(0,361,6))
 
 class Maps:
-    def __init__(self,root,model,run,hours,points=True,core_hours=None):
+    def __init__(self,root,model,run,hours,points=True,core_hours=None,point_hours=None):
         self.root=Path(root);self.root.mkdir(parents=True,exist_ok=True)
-        self.meta=dict(schema=2,model=model,run=run,generated=dt.datetime.now(dt.timezone.utc).isoformat(),hours=hours,frames={},scales={})
+        self.meta=dict(schema=2,profileVersion=2,model=model,run=run,generated=dt.datetime.now(dt.timezone.utc).isoformat(),hours=hours,frames={},scales={})
         self.core_hours=set(hours if core_hours is None else core_hours)
         self.meta['coreHours']=[h for h in hours if h in self.core_hours]
-        self.points=runpy.run_path(str(HERE/'native-point.py'))['PointTiles'](self.root,model,run,self.meta['generated'],hours,extrema=6 if model.startswith('ICON-') else None) if points else None
+        point_hours=hours if point_hours is None else point_hours
+        self.point_hours=set(point_hours)
+        self.points=runpy.run_path(str(HERE/'native-point.py'))['PointTiles'](self.root,model,run,self.meta['generated'],point_hours,extrema=6 if model.startswith('ICON-') else None) if points else None
     def add(self,grid,h,frame,scales):
         if self.meta.get('grid',grid)!=grid:raise ValueError('Changing grid')
         self.meta['grid']=grid
@@ -71,7 +73,7 @@ class Maps:
             available.append(field)
         self.meta['frames'][str(h)]=available
         if not available:raise ValueError(f'Empty map +{h}')
-        if self.points:self.points.add(grid,h,{k:frame[k] for k in available},self.meta['scales'])
+        if self.points and h in self.point_hours:self.points.add(grid,h,{k:frame[k] for k in available},self.meta['scales'])
     def finish(self):
         if set(self.meta['frames'])!={str(h) for h in self.meta['hours']}:raise ValueError('Missing map step')
         (self.root/'index.json').write_text(json.dumps(self.meta,separators=(',',':')))
@@ -134,7 +136,10 @@ def main():
         if args.max_steps:hours=hours[:args.max_steps]
         if args.previous_run and run<=dt.datetime.fromisoformat(args.previous_run):
             print('No newer complete model run');return
-        writer=Maps(args.output,name,run.isoformat(),hours,points=not args.germany)
+        # Small hourly GFS location tiles supply real hourly rain even when
+        # regional hourly packets are unavailable; no coarse time interpolation.
+        hourly_points=gfs and args.germany
+        writer=Maps(args.output,name,run.isoformat(),hours,points=not args.germany or hourly_points,point_hours=[h for h in hours if h<=120] if hourly_points else None)
         previous={}
         for h in hours:
             frame=api['frame'](run,h,previous) if gfs else api['frame'](run,h)[1]

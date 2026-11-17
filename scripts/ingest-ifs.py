@@ -27,7 +27,7 @@ GRID = dict(west=-25., south=34., step=.5, nx=135, ny=75, scale=.1, missing=-327
 X = GRID['west'] + np.arange(GRID['nx'])*GRID['step']
 Y = GRID['south'] + np.arange(GRID['ny'])*GRID['step']
 pack = runpy.run_path(str(Path(__file__).with_name('ingest-icon.py')))['pack']
-SURFACE = {'2t':('temp2',1,-273.15),'2d':('dew',1,-273.15),
+SURFACE = {'2t':('temp2',1,-273.15),'2d':('dew',1,-273.15),'sp':('ps',.01,0),'z':('orog',1/9.80665,0),
            'msl':('slp',.01,0),'tcc':('cloud',100,0),'tp':('rainTotal',1000,0),
            '10u':('u10',1,0),'10v':('v10',1,0),'10fg':('gust',3.6,0),
            'lcc':('lowcloud',100,0),'mcc':('midcloud',100,0),'hcc':('highcloud',100,0),
@@ -35,15 +35,16 @@ SURFACE = {'2t':('temp2',1,-273.15),'2d':('dew',1,-273.15),
            'mucape':('mucape',1,0),'ptype':('ptype',1,0),'cp':('convTotal',1000,0),
            'sf':('snowWaterTotal',1000,0),'sd':('snowWater',1000,0),'rsn':('snowDensity',1,0),
            'ssrd':('solarTotal',.001,0),'100u':('u100',1,0),'100v':('v100',1,0)}
-SCALES={'mucape':1,'ptype':1,'solarTotal':10,'snowDensity':1}
+SCALES={'mucape':1,'ptype':1,'solarTotal':10,'snowDensity':1,'orog':1}
 CORE = {'temp2','dew','slp','cloud','rainTotal','u10','v10'}
 LEVELS=(925,850,700,500,300,250,200)
-PRESSURE = {('t',n):(f't{n}',1,-273.15) for n in LEVELS}
-PRESSURE.update({('r',n):(f'rh{n}',1,0) for n in LEVELS})
-PRESSURE.update({('gh',n):(f'z{n}',.1,0) for n in LEVELS})
-PRESSURE.update({('z',n):(f'z{n}',1/98.0665,0) for n in LEVELS})
-PRESSURE.update({(v,n):(f'{v}{n}',1,0) for v in ('u','v') for n in LEVELS})
-PRESSURE.update({('q',n):(f'q{n}',1,0) for n in LEVELS})
+PROFILE_LEVELS=LEVELS+(1000,975,950,900,800,600,400,150,100)
+PRESSURE = {('t',n):(f't{n}',1,-273.15) for n in PROFILE_LEVELS}
+PRESSURE.update({('r',n):(f'rh{n}',1,0) for n in PROFILE_LEVELS})
+PRESSURE.update({('gh',n):(f'z{n}',.1,0) for n in PROFILE_LEVELS})
+PRESSURE.update({('z',n):(f'z{n}',1/98.0665,0) for n in PROFILE_LEVELS})
+PRESSURE.update({(v,n):(f'{v}{n}',1,0) for v in ('u','v') for n in PROFILE_LEVELS})
+PRESSURE.update({('q',n):(f'q{n}',1,0) for n in PROFILE_LEVELS})
 
 
 def get(url, offset=None, length=None):
@@ -76,6 +77,7 @@ def selected(rows):
     heights={int(row['levelist']) for row in rows if row.get('levtype')=='pl' and row.get('param')=='gh'}
     for row in rows:
         param = row.get('param')
+        if row.get('levtype')=='pl' and int(row.get('levelist',0)) not in (PROFILE_LEVELS if NATIVE_STEP is not None and GRID['west']>0 else LEVELS):continue
         if param=='z' and row.get('levtype')=='pl' and int(row.get('levelist',0)) in heights:continue
         specs = SURFACE.get(param) if row.get('levtype') == 'sfc' else PRESSURE.get((param,int(row.get('levelist',0)))) if row.get('levtype') == 'pl' else None
         if specs:
@@ -167,7 +169,7 @@ def frame(run,hour):
     t,d=values['temp2'],values['dew']
     values['rh2']=np.clip(100*np.exp(17.625*d/(243.04+d)-17.625*t/(243.04+t)),0,100)
     # AIFS publishes specific humidity rather than relative humidity on pressure levels.
-    for level in LEVELS:
+    for level in PROFILE_LEVELS:
         q=values.pop(f'q{level}',None); temp=values.get(f't{level}')
         if q is not None and temp is not None and f'rh{level}' not in values:
             e=q*level/(.622+.378*q)
@@ -209,3 +211,4 @@ def main():
 
 
 if __name__=='__main__':main()
+
