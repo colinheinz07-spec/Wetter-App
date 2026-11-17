@@ -19,6 +19,7 @@ class Maps:
     def __init__(self,root,model,run,hours):
         self.root=Path(root);self.root.mkdir(parents=True,exist_ok=True)
         self.meta=dict(schema=2,model=model,run=run,generated=dt.datetime.now(dt.timezone.utc).isoformat(),hours=hours,frames={},scales={})
+        self.points=runpy.run_path(str(HERE/'native-point.py'))['PointTiles'](self.root,model,run,self.meta['generated'],hours,extrema=6 if model.startswith('ICON-') else None)
     def add(self,grid,h,frame,scales):
         if self.meta.get('grid',grid)!=grid:raise ValueError('Changing grid')
         self.meta['grid']=grid
@@ -58,9 +59,11 @@ class Maps:
             with gzip.open(self.root/f'{h}-{field}.json.gz','wt',compresslevel=5) as f:json.dump(packet,f,separators=(',',':'))
             available.append(field)
         self.meta['frames'][str(h)]=available
+        self.points.add(grid,h,{k:frame[k] for k in available},self.meta['scales'])
     def finish(self):
         if set(self.meta['frames'])!={str(h) for h in self.meta['hours']}:raise ValueError('Missing map step')
         (self.root/'index.json').write_text(json.dumps(self.meta,separators=(',',':')))
+        self.points.finish()
 
 def ecmwf_high_index(api,run,h):
     # ECMWF 0.1 degree open-data files are split into surface and pressure.
@@ -114,3 +117,4 @@ def main():
             writer.add(grid,h,frame,api['SCALES'])
     writer.finish()
 if __name__=='__main__':main()
+
