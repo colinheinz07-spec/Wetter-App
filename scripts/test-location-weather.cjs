@@ -1,0 +1,24 @@
+// Native-point packets and location-based forecast logic (no network needed).
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const html=fs.readFileSync('index.html','utf8'),chunk=(a,b)=>html.slice(html.indexOf(a),html.indexOf(b));
+const ctx=vm.createContext({console,Date,atob,btoa,Int16Array,Map,Set,Math,Number});
+vm.runInContext(chunk('const realModelFiles=','async function fetchRealModel')+chunk('const localFormat=','const realPoint=')+chunk('const realPoint=','const realWeatherIcon'),ctx);
+const pack=(...v)=>{const b=Buffer.alloc(v.length*2);v.forEach((n,i)=>b.writeInt16LE(n,i*2));return b.toString('base64')}, same=n=>pack(n,n,n,n);
+const run=new Date(Math.floor(Date.now()/3600000)*3600000).toISOString(),hours=Array.from({length:49},(_,i)=>i);
+const frames=Object.fromEntries(hours.map(h=>[h,{temp2:pack(120,129,70,80),dew:pack(60,60,60,70),wind:same(40),slp:same(10100),cloud:same(1000),rainTotal:same(0),rh2:same(960),lowcloud:same(950),ww:same(3),tground:same(-5),gust:same(200),mlcape:same(700),mlcin:same(-30)}]));
+const m={schema:3,model:'ICON-D2',run,generated:run,hours,tileSize:24,grid:{west:7.8,south:50.52,step:.02,nx:2,ny:2,scale:.1,missing:-32768},scales:Object.fromEntries(Object.keys(frames[0]).map(k=>[k,['ww','mlcape','mlcin'].includes(k)?1:.1])),frames:Object.fromEntries(hours.map(h=>[h,Object.keys(frames[h])]))};
+const t={schema:3,run,generated:run,key:'0-0',frames};Object.assign(ctx,{m,t,pack,same,run});const ev=s=>vm.runInContext(s,ctx);
+ev(`const a=[7.8,50.52],b=[7.82,50.52],c=[7.8,50.54],now=Date.parse(run)+HOUR_MS;validatePointManifest(m,'ICON-D2');const data=p=>pointDataset(m,t,p,pointCell(m,p));for(const p of [a,b,c])putPointRun(p,data(p));`);
+assert.equal(ev(`temperatureText(frameVal(currentGridFrame(a,now),'temp2'))`),'12');
+assert.equal(ev(`temperatureText(frameVal(currentGridFrame(b,now),'temp2'))`),'13');
+assert.equal(ev(`frameWeather(currentGridFrame(c,now),true).icon`),'47_hochnebel');
+assert.equal(ev(`forecastPeriod(c,now,now,now+6*HOUR_MS).weather.icon`),'47_hochnebel');
+assert.throws(()=>ev(`pointDataset(m,{...t,run:'wrong'},a,pointCell(m,a))`),/Modelllauf/);
+assert.equal(ev(`pointCell(m,[0,0])`),null);
+assert.equal(ev(`localWarnings([{periods:[forecastPeriod(c,now,now,now+6*HOUR_MS)]}],now,400,c).find(w=>w.type==='Glättepotenzial').level`),1);
+ev(`const globalHours=Array.from({length:41},(_,i)=>i*6);const global=(model,temp)=>({...data(c),model,hours:globalHours,frames:Object.fromEntries(globalHours.map(h=>[h,{...data(c).frames[0],temp2:pack(temp),rainTotal:pack(h*10),ww:pack(95)}]))});putPointRun(c,global('IFS',100));putPointRun(c,global('GFS',140));putPointRun(c,global('AIFS',300));`);
+assert.equal(ev(`periodDisplay(consensusPeriod(c,now+72*HOUR_MS,now,now+78*HOUR_MS),'mean')`),12);
+assert.equal(ev(`consensusPeriod(c,now+72*HOUR_MS,now,now+78*HOUR_MS).members.length`),2);
+assert.equal(ev(`convectionModels(c,now+72*HOUR_MS,now+78*HOUR_MS,now).length`),2);
+assert.equal(ev(`convectionModels(c,now,now+HOUR_MS,now).length`),0);
+console.log('Native cell selection, packet integrity, fog, frost/wetness, independent model mean and convective signals: OK');
