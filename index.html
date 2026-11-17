@@ -1006,6 +1006,8 @@ function syncLiveTimeControls(){
   el('map-time-controls').hidden=terrainMode==='topo'||enabled&&imageLayers.has(liveLayer);
  if(!enabled)return;
  const slider=el('map-time');
+ slider.removeAttribute('aria-valuetext');
+ for(const id of ['map-time','map-back','map-next','map-play'])el(id).disabled=false;
  if(days){
   const base=typeof realLiveEnabled!=='undefined'&&realLiveEnabled?new Date():new Date(liveTimeBases[liveScenario]);
   document.querySelectorAll('[data-temperature-day]').forEach(b=>{
@@ -1117,7 +1119,7 @@ function openHomeMap(id){
 }
 function updateFullMapLabels(){
  el('map-full-title').textContent=el('map-layer-title').textContent;
- const valid=modelValidDate();el('map-full-subtitle').textContent=terrainMode==='topo'?'Topografie':mapSource==='live'?timeText(liveTime())+(liveIsFuture()?' · Prognose (Demo)':' · DEMO'):mapModel+' · '+(valid?timeText(valid):'Keine Daten')+' · '+(modelDataMode==='demo'?'DEMO':realData()?modelProvider(mapModel):'AUSSTEHEND');
+ const valid=modelValidDate();el('map-full-subtitle').textContent=terrainMode==='topo'?'Topografie':mapSource==='live'?timeText(liveTime())+(liveIsFuture()?' · Prognose (Demo)':' · DEMO'):mapModel+' · '+(valid?(modelDataMode==='real'?forecastTimeText(valid):timeText(valid)):'Keine zukünftigen Daten')+' · '+(modelDataMode==='demo'?'DEMO':realData()?modelProvider(mapModel):'AUSSTEHEND');
  el('map-full-layer-tabs').hidden=mapSource!=='live'||terrainMode==='topo';
  document.querySelectorAll('[data-full-layer]').forEach(b=>{const on=b.dataset.fullLayer===liveLayer;b.classList.toggle('active',on);b.setAttribute('aria-pressed',String(on))});
  el('map-info-summary').textContent=terrainMode==='topo'?'Geländehöhen in Metern.':mapSource==='live'?el('map-layer-title').textContent+(liveIsFuture()?' · Simulierte Prognose, keine Messdaten. ':' · Simulierte Beobachtungen, keine Messdaten. ')+el('map-interval').textContent+(liveLayer==='wind'?' Pfeile zeigen die Strömungsrichtung.':''):el('map-layer-title').textContent+' · '+mapModel+' · '+el('map-valid').textContent+' · '+el('map-interval').textContent;
@@ -1434,7 +1436,13 @@ function mapModelRuns(model){
  const native=[nativeMapModels.get(realModelFiles[model]),...(model==='IFS'?[nativeMapModels.get('ifs-short')]:[])].filter(Boolean).sort((a,b)=>Date.parse(b.run)-Date.parse(a.run));
  return native.length?native:modelRuns(model);
 }
-function realData(){return modelDataMode==='real'?(mapModelRuns(mapModel).find(d=>Date.parse(d.run)===selectedMapRun)||mapModelRuns(mapModel)[0]):null}
+// A model's initialization time is not the validity time of a forecast.
+const mapLeadTime=(d,h)=>Date.parse(d.run)+h*3600000;
+function futureMapRuns(model,now=Date.now()){
+ const valid=d=>Date.parse(d.run)<=now&&mapLeadTime(d,d.hours.at(-1))>now;
+ const native=mapModelRuns(model).filter(valid);return native.length?native:modelRuns(model).filter(valid);
+}
+function realData(now=Date.now()){if(modelDataMode!=='real')return null;const runs=futureMapRuns(mapModel,now);return runs.find(d=>Date.parse(d.run)===selectedMapRun)||runs[0]||null}
 function nativeMapRoot(file){return 'https://raw.githubusercontent.com/colinheinz07-spec/Wetter-App/generated-native-'+file+'/'}
 async function nativeMapRead(file,path,zip=false,version='',timeout=zip?45000:10000){
  try{
@@ -1509,10 +1517,22 @@ function fetchNativeMapFields(d,p,h){
 }
 function nativeFieldsReady(d,p,h){return !!d?.nativeMap&&mapFieldRequirements(d,p,h).every(([t,k])=>d.decoded.has(t+'/'+k));}
 let selectedMapRun=null;
+// Filter by the actual forecast timestamp AND the required fields. For a sum,
+// earlier inputs may still be needed internally, not as selectable past maps.
+function futureMapHours(d,p,now=Date.now()){
+ if(!d||!p)return [];
+ return d.hours.filter(h=>mapLeadTime(d,h)>now&&mapFieldRequirements(d,p,h).every(([t,k])=>!!d.frames?.[t]?.[k]));
+}
+function nextMapSelection(d,hours,target=null,now=Date.now()){
+ if(!d||!hours.length)return {hour:NaN,target};
+ const future=target!==null&&target>now;
+ const hour=future?(hours.find(h=>mapLeadTime(d,h)>=target)??hours.at(-1)):hours[0];
+ return {hour,target:future?target:null};
+}
 function realModelSupported(p,step,max,anyHour=false){
  const d=realData(),id=p.id==='rh'?'rh2':p.id;if(!d||p.interval>max)return false;
  const available=h=>mapFieldRequirements(d,p,h).every(([t,k])=>!!d.frames?.[t]?.[k]);
- return anyHour?d.hours.some(available):available(mapHour);
+ return anyHour?futureMapHours(d,p).length>0:mapLeadTime(d,mapHour)>Date.now()&&available(mapHour);
 }
 function effectiveModel(){
  const base=mapModels[mapModel],d=realData();
@@ -1521,7 +1541,7 @@ function effectiveModel(){
  return base;
 }
 function modelRunDate(){const d=realData();return modelDataMode==='real'?(d?new Date(d.run):null):new Date(Date.UTC(2026,10,15,mapRun))}
-function modelValidDate(){const d=modelRunDate();return d?new Date(d.getTime()+mapHour*3600000):null}
+function modelValidDate(){const d=modelRunDate();if(!d||!Number.isFinite(mapHour))return null;const t=d.getTime()+mapHour*3600000;return modelDataMode==='real'&&t<=Date.now()?null:new Date(t)}
 function validateRealData(d,model){
  if(!d||d.schema!==1||d.model!==model||!Number.isFinite(Date.parse(d.run))||!Number.isFinite(Date.parse(d.generated)))throw Error('Ungültiger Modelllauf');
  const g=d.grid;if(!g||!Number.isFinite(g.west)||!Number.isFinite(g.south)||!(g.step>0)||g.scale!==.1||g.missing!==-32768||!Number.isInteger(g.nx)||!Number.isInteger(g.ny)||g.nx<2||g.ny<2||g.nx*g.ny>500000)throw Error('Ungültiges Modellraster');
@@ -1623,6 +1643,7 @@ function modelStatus(){
  if(modelDataMode!=='real')return {label:'Testdaten · keine Vorhersage',detail:'Modellkarte · synthetische Testfelder'};
  const d=realData();
  if(d){
+  if(mapSource==='model'&&!Number.isFinite(mapHour))return {label:'Keine zukünftigen Daten',detail:'Für diesen Parameter gibt es im Modelllauf keine verfügbaren zukünftigen Zeitpunkte.'};
   const provider=modelProvider(d.model),old=Date.now()-Date.parse(d.run)>modelAgeLimit(d.model)*3600000;
   const count=new Set(Object.values(d.frames).flatMap(Object.keys)).size;
   if(d.nativeMap){const ready=nativeFieldsReady(d,fields[mapLayer],mapHour),available=realModelSupported(fields[mapLayer],d.hours[1],d.hours.at(-1));return {label:ready?'Originalraster':available?'Originaldaten werden geladen':'Keine Originaldaten',detail:provider+' · '+d.grid.step.toLocaleString('de-DE',{maximumFractionDigits:5})+'° Originalraster · keine räumliche Glättung'+(old?' · nicht aktuell':'')}}
@@ -2535,7 +2556,7 @@ const citiesEU=[['London',-.127,51.507],['Paris',2.35,48.86],['Berlin',13.405,52
 // and zoom. This mock adapter will be replaced by actual native model grids.
 let gridKey='',gridCache=new Map();
 function gridSample(p,lon,lat){
- if(modelDataMode==='real'){const d=realData(),value=d?.nativeMap?nativeFieldsReady(d,p,mapHour)?realModelValue(d,p,lon,lat,mapHour):NaN:p.id==='temp2'?nativeMapTemperatureValue(matchingNativeMap(),lon,lat):NaN;return {value,color:Number.isFinite(value)?colorAt(p,value):[95,110,125]}}
+ if(modelDataMode==='real'){const d=realData(),value=!modelValidDate()?NaN:d?.nativeMap?nativeFieldsReady(d,p,mapHour)?realModelValue(d,p,lon,lat,mapHour):NaN:p.id==='temp2'?nativeMapTemperatureValue(matchingNativeMap(),lon,lat):NaN;return {value,color:Number.isFinite(value)?colorAt(p,value):[95,110,125]}}
  const key=[mapModel,mapRun,mapHour,p.id].join('/');if(gridKey!==key){gridKey=key;gridCache.clear()}
  const step=mapModels[mapModel].grid,ix=Math.round(lon/step),iy=Math.round(lat/step),cell=ix+':'+iy;
  if(!gridCache.has(cell)){const value=demoValue(p.mode,ix*step,iy*step);gridCache.set(cell,{value,color:Number.isFinite(value)?colorAt(p,value):[95,110,125]})}
@@ -2559,7 +2580,7 @@ function pressureExtrema(values,g,radius){
 // Geographic cell edges remain fixed when the map is panned or zoomed.
 function drawModelCells(ctx,b,p){
  const d=realData(),native=!d?.nativeMap&&p.id==='temp2'?matchingNativeMap():null;
- if(d?.nativeMap?!nativeFieldsReady(d,p,mapHour):!native){ctx.fillStyle='#5f6e7d';ctx.fillRect(0,0,b.w,b.h);return;}
+ if(!modelValidDate()||(d?.nativeMap?!nativeFieldsReady(d,p,mapHour):!native)){ctx.fillStyle='#5f6e7d';ctx.fillRect(0,0,b.w,b.h);return;}
  if(!d)return;const g=native?native.meta.grid:d.grid,dx=g.dx??g.step,dy=g.dy??g.step;
  const x0=Math.max(0,Math.floor((b.west-g.west)/dx+.5)),x1=Math.min(g.nx-1,Math.ceil((b.east-g.west)/dx+.5));
  const y0=Math.max(0,Math.floor((b.south-g.south)/dy+.5)),y1=Math.min(g.ny-1,Math.ceil((b.north-g.south)/dy+.5));
@@ -2583,7 +2604,7 @@ function drawMap(fast=false){
  if(mapSource==='live'&&terrainMode!=='topo'){
   drawLiveBase(ctx,b);
  }else if(terrainMode!=='topo'&&modelDataMode==='real'){
-  fetchNativeMapModel(mapModel);const d=realData();if(d?.nativeMap)fetchNativeMapFields(d,p,mapHour);else if(mapLayer==='temp2')fetchNativeMapTemperature();drawModelCells(ctx,b,p);
+  fetchNativeMapModel(mapModel);const d=realData();if(modelValidDate()){if(d?.nativeMap)fetchNativeMapFields(d,p,mapHour);else if(mapLayer==='temp2')fetchNativeMapTemperature()}drawModelCells(ctx,b,p);
  }else if(terrainMode!=='topo'){
   const bw=Math.round(b.w/(fast?7:3.5)),bh=Math.round(b.h/(fast?7:3.5));
   mapBuffer.width=bw;mapBuffer.height=bh;const buf=mapBuffer.getContext('2d');const img=buf.createImageData(bw,bh);
@@ -2636,7 +2657,23 @@ function renderSample(){
  if(name){const label=document.createElement('span');label.textContent=name+' · ';el('map-sample').firstElementChild.prepend(label)}
 }
 const timeText=d=>d.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',timeZone:'UTC'})+' · '+d.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit',timeZone:'UTC'})+' UTC';
+const forecastTimeText=d=>localTime(d.getTime(),{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'})+' Uhr';
 function minHour(){const step=effectiveModel().step;return modelDataMode==='real'&&mapLayer==='rainrate'?step:Math.ceil(fields[mapLayer].interval/step)*step}
+let mapTargetTime=null,mapFutureHours=[];
+function realForecastMap(){return mapSource==='model'&&modelDataMode==='real'&&terrainMode!=='topo'}
+function syncModelTimeline(now=Date.now()){
+ if(!realForecastMap())return false;
+ const d=realData(now),hours=futureMapHours(d,fields[mapLayer],now),old=mapHour;
+ const next=nextMapSelection(d,hours,mapTargetTime,now);mapHour=next.hour;mapTargetTime=next.target;mapFutureHours=hours;
+ const slider=el('map-time'),i=hours.indexOf(mapHour);slider.min=0;slider.max=Math.max(0,hours.length-1);slider.step=1;slider.value=Math.max(0,i);slider.disabled=hours.length<2;slider.setAttribute('aria-label','Zukünftige Modellzeit (Ortszeit)');slider.setAttribute('aria-valuetext',i<0?'Keine zukünftigen Daten':forecastTimeText(new Date(mapLeadTime(d,mapHour))));
+ el('map-back').disabled=i<=0;el('map-next').disabled=i<0||i===hours.length-1;el('map-play').disabled=hours.length<2;
+ if(hours.length<2&&mapTimer!==null)stopPlay();
+ return !Object.is(old,mapHour);
+}
+function selectFutureMapIndex(index){
+ syncModelTimeline();const d=realData(),h=mapFutureHours[index];if(!d||h===undefined)return;
+ mapTargetTime=index===0?null:mapLeadTime(d,h);syncModelTimeline();
+}
 function mapLabels(){
  const p=fields[mapLayer],status=modelStatus();el('map-layer-title').textContent=terrainMode==='topo'?'Topografie · Geländehöhe':p.label;el('map-model-badge').textContent=terrainMode==='topo'?'Relief':mapModel;el('map-overlay-model').textContent=terrainMode==='topo'?'TOPO':mapModel;
  el('map-overlay-data').textContent=terrainMode==='topo'?'GELÄNDE':mapSource==='live'||modelDataMode==='demo'?'DEMO':(realData()?.nativeMap?nativeFieldsReady(realData(),p,mapHour):mapLayer==='temp2'&&matchingNativeMap())?'ORIGINALRASTER':'ORIGINALDATEN AUSSTEHEND';
@@ -2646,11 +2683,11 @@ function mapLabels(){
  document.querySelectorAll('[data-map-source]').forEach(b=>{const on=b.dataset.mapSource===mapSource;b.classList.toggle('active',on);b.setAttribute('aria-pressed',String(on))});
  el('map-view-description').textContent=terrainMode==='topo'?'Echtes Geländemodell · Höhen in Metern':status.detail;
  el('map-gesture-hint').textContent='Ziehen zum Verschieben · Zwei Finger zum Zoomen · Antippen zum Ablesen '+(terrainMode==='topo'?'der Geländehöhe':'eines Modellrasterwerts');
- el('map-time-label').textContent='+'+mapHour+' Std.';
  const date=modelValidDate();
- el('map-valid').textContent=date?'Gültig: '+timeText(date):'Kein Modelllauf verfügbar';
+ el('map-time-label').textContent=modelDataMode==='real'?(date?forecastTimeText(date):'Keine Prognose'):'+'+mapHour+' Std.';
+ el('map-valid').textContent=date?'Gültig: '+(modelDataMode==='real'?forecastTimeText(date):timeText(date)):'Keine zukünftige Prognose verfügbar';
  const n=p.id==='rainTotal'?mapHour:p.interval,available=realData()&&realModelSupported(p,effectiveModel().step,effectiveModel().max);
- el('map-interval').textContent=modelDataMode==='real'&&!available?'Für diesen Parameter sind keine Realdaten verfügbar.':date&&n>0?'Summenzeitraum: '+timeText(new Date(date.getTime()-n*3600000))+' – '+timeText(date):(p.id==='rainTotal'?'Summe seit Modellstart: 0 mm':p.id==='rainrate'?(modelDataMode==='real'?'Mittlere Niederschlagsrate · letzte '+effectiveModel().step+' h':'Momentane Rate (mm/h)'):'');
+ el('map-interval').textContent=modelDataMode==='real'&&!available?'Für diesen Parameter sind keine zukünftigen Realdaten verfügbar.':date&&n>0?'Summenzeitraum: '+(modelDataMode==='real'?forecastTimeText(new Date(date.getTime()-n*3600000))+' – '+forecastTimeText(date):timeText(new Date(date.getTime()-n*3600000))+' – '+timeText(date)):(p.id==='rainTotal'?'Summe seit Modellstart: 0 mm':p.id==='rainrate'?(modelDataMode==='real'?'Mittlere Niederschlagsrate · letzte '+effectiveModel().step+' h':'Momentane Rate (mm/h)'):'');
  if(terrainMode==='topo')el('map-interval').textContent='';
  if(mapSource==='live'&&terrainMode!=='topo'){
   el('map-weather-controls').hidden=true;
@@ -2671,7 +2708,7 @@ function mapLabels(){
  el('map-zoom-minus').disabled=mapZoom<=1;el('map-zoom-plus').disabled=mapZoom>=24;el('map-zoom-level').textContent=mapZoom.toFixed(1)+'×';
  updateFullMapLabels();
 }
-function refreshMap(){mapLabels();legend();if(activePage==='map'){drawMap();renderSample()}}
+function refreshMap(){syncModelTimeline();mapLabels();legend();if(activePage==='map'){drawMap();renderSample()}}
 function scheduleMap(){if(activePage!=='map'||mapFrame!==null)return;mapFrame=requestAnimationFrame(()=>{mapFrame=null;if(activePage!=='map')return;if(mapGesture){drawMapGesture();el('map-zoom-minus').disabled=mapZoom<=1;el('map-zoom-plus').disabled=mapZoom>=24;el('map-zoom-level').textContent=mapZoom.toFixed(1)+'×'}else refreshMap()})}
 function beginMapGesture(){
  mapGesture=true;if(gestureTimer!==null)clearTimeout(gestureTimer);
@@ -2683,20 +2720,21 @@ function endMapGesture(){
 }
 function renderMap(){
  const list=mapOptions();if(!list.includes(mapModel))mapModel=list[0];const model=effectiveModel();
+ if(realForecastMap())syncModelTimeline();
  modelSelect.innerHTML=list.map(s=>'<option value="'+s+'" '+(s===mapModel?'selected':'')+'>'+s+'</option>').join('');
  const data=realData(),available=mapParameters,groups=[...new Set(available.map(p=>p.group))];
  parameterSelect.disabled=modelDataMode==='real'&&!data;
  parameterSelect.innerHTML=groups.map(g=>'<optgroup label="'+g+'">'+available.filter(p=>p.group===g).map(p=>'<option value="'+p.id+'" '+(p.id===mapLayer?'selected':'')+'>'+p.label+(data&&!realModelSupported(p,model.step,model.max,true)?' · nicht verfügbar':'')+'</option>').join('')+'</optgroup>').join('');
- const run=el('map-run'),date=modelRunDate(),runs=mapModelRuns(mapModel);run.disabled=modelDataMode==='real'&&runs.length<2;el('map-run-label').textContent=modelDataMode==='real'?'Modelllauf ('+modelProvider(mapModel)+')':'Modelllauf (Demo)';
+ const run=el('map-run'),runs=modelDataMode==='real'?futureMapRuns(mapModel):mapModelRuns(mapModel);if(selectedMapRun!==null&&!runs.some(d=>Date.parse(d.run)===selectedMapRun))selectedMapRun=null;run.disabled=modelDataMode==='real'&&runs.length<2;el('map-run-label').textContent=modelDataMode==='real'?'Modelllauf ('+modelProvider(mapModel)+', UTC)':'Modelllauf (Demo)';
  run.innerHTML=modelDataMode==='real'?'<option value="auto">'+(runs.length?'Aktuell · '+timeText(new Date(runs[0].run)):'Modell wird geladen …')+'</option>'+runs.map(d=>'<option value="'+Date.parse(d.run)+'" '+(Date.parse(d.run)===selectedMapRun?'selected':'')+'>'+timeText(new Date(d.run))+' (+'+d.hours.at(-1)+' h)</option>').join(''):[0,6,12].map(h=>'<option value="'+h+'" '+(mapRun===h?'selected':'')+'>15.11. · '+String(h).padStart(2,'0')+' UTC</option>').join('');
  el('map-data-mode').value=modelDataMode;el('map-data-refresh').hidden=modelDataMode!=='real';
  const time=el('map-time');if(mapSource==='live'){syncLiveTimeControls()}
- else{time.max=model.max;time.step=model.step;time.min=Math.min(minHour(),model.max);mapHour=clamp(Math.round(mapHour/model.step)*model.step,+time.min,model.max);time.value=mapHour;time.setAttribute('aria-label','Vorhersagezeit')}
+ else if(modelDataMode!=='real'){time.max=model.max;time.step=model.step;time.min=Math.min(minHour(),model.max);mapHour=clamp(Math.round((Number.isFinite(mapHour)?mapHour:0)/model.step)*model.step,+time.min,model.max);time.value=mapHour;time.setAttribute('aria-label','Vorhersagezeit');time.removeAttribute('aria-valuetext');for(const id of ['map-time','map-back','map-next','map-play'])el(id).disabled=false}
  document.querySelectorAll('[data-region]').forEach(b=>b.classList.toggle('active',b.dataset.region===mapRegion));
  refreshMap();
 }
 function stopPlay(){if(mapTimer!==null){clearInterval(mapTimer);mapTimer=null}el('map-play').textContent='▶';el('map-play').setAttribute('aria-label',mapSource==='live'?'Radar-Zeitverlauf abspielen':'Vorhersage abspielen')}
-function openMapLayer(id,model,frame=null){stopPlay();mapSource='model';if(terrainMode==='topo'){terrainMode='weather-relief';el('map-terrain-mode').value=terrainMode}if(id&&fields[id])mapLayer=id;if(model&&mapModels[model]){if(mapModel!==model)selectedMapRun=null;mapModel=model;if(model==='ICON-D2'&&mapRegion!=='Deutschland'){mapRegion='Deutschland';mapZoom=1;mapCenter=null;mapPoint=null;mapPointName=''}}if(frame){selectedMapRun=Date.parse(frame.d.run);const d=realData();mapHour=d?Math.round((frame.time-Date.parse(d.run))/HOUR_MS):frame.hour;mapPoint=frame.point;mapPointName=location.name;}renderMap();if(modelDataMode==='real')fetchRealModel(mapModel);setPage('map')}
+function openMapLayer(id,model,frame=null){stopPlay();mapSource='model';if(terrainMode==='topo'){terrainMode='weather-relief';el('map-terrain-mode').value=terrainMode}if(id&&fields[id])mapLayer=id;if(model&&mapModels[model]){if(mapModel!==model)selectedMapRun=null;mapModel=model;if(model==='ICON-D2'&&mapRegion!=='Deutschland'){mapRegion='Deutschland';mapZoom=1;mapCenter=null;mapPoint=null;mapPointName=''}}if(frame){if(modelDataMode==='real'){selectedMapRun=null;mapTargetTime=frame.time>Date.now()?frame.time:null}else mapHour=frame.hour;mapPoint=frame.point;mapPointName=location.name;}renderMap();if(modelDataMode==='real')fetchRealModel(mapModel);setPage('map')}
 modelSelect.addEventListener('change',()=>{stopPlay();selectedMapRun=null;mapModel=modelSelect.value;renderMap();if(modelDataMode==='real')fetchRealModel(mapModel)});
 parameterSelect.addEventListener('change',()=>{stopPlay();mapLayer=parameterSelect.value;renderMap()});
 el('map-run').addEventListener('change',e=>{if(modelDataMode==='real'){selectedMapRun=e.target.value==='auto'?null:Number(e.target.value);realModelRevision++;renderMap()}else{mapRun=+e.target.value;scheduleMap()}});
@@ -2711,10 +2749,19 @@ el('map-nowcast-forward').addEventListener('click',()=>selectLiveNowcast(90));
 el('map-live-lightning').addEventListener('change',e=>{liveLightning=e.target.checked;scheduleMap()});
 el('map-live-symbols').addEventListener('change',e=>{liveSymbols=e.target.checked;scheduleMap()});
 bindFullMap();
-function stepMap(direction,wrap=false){const slider=el('map-time'),step=+slider.step||1,min=+slider.min,max=+slider.max;if(mapSource==='live'&&liveHourlyMode()){let hour=liveTempHour+direction;if(hour<0&&liveTempDay>0){liveTempDay--;hour=23}else if(hour>23&&liveTempDay<2){liveTempDay++;hour=0}else if(wrap&&hour>23){liveTempDay=0;hour=0}liveTempHour=clamp(hour,0,23)}else{const value=(mapSource==='live'?liveMinute:mapHour)+direction*step,next=wrap&&value>max?min:clamp(value,min,max);if(mapSource==='live')liveMinute=next;else mapHour=next;slider.value=next}scheduleMap()}
+function stepMap(direction,wrap=false){if(realForecastMap()){syncModelTimeline();const i=mapFutureHours.indexOf(mapHour),max=mapFutureHours.length-1;if(i<0)return;const next=i+direction;selectFutureMapIndex(wrap&&next>max?0:clamp(next,0,max));scheduleMap();return}const slider=el('map-time'),step=+slider.step||1,min=+slider.min,max=+slider.max;if(mapSource==='live'&&liveHourlyMode()){let hour=liveTempHour+direction;if(hour<0&&liveTempDay>0){liveTempDay--;hour=23}else if(hour>23&&liveTempDay<2){liveTempDay++;hour=0}else if(wrap&&hour>23){liveTempDay=0;hour=0}liveTempHour=clamp(hour,0,23)}else{const value=(mapSource==='live'?liveMinute:mapHour)+direction*step,next=wrap&&value>max?min:clamp(value,min,max);if(mapSource==='live')liveMinute=next;else mapHour=next;slider.value=next}scheduleMap()}
 el('map-back').addEventListener('click',()=>{stopPlay();stepMap(-1)});el('map-next').addEventListener('click',()=>{stopPlay();stepMap(1)});
-el('map-time').addEventListener('input',e=>{stopPlay();if(mapSource==='live'){if(liveHourlyMode())liveTempHour=+e.target.value;else liveMinute=+e.target.value}else mapHour=+e.target.value;scheduleMap()});
+el('map-time').addEventListener('input',e=>{stopPlay();const value=+e.target.value;if(realForecastMap())selectFutureMapIndex(value);else if(mapSource==='live'){if(liveHourlyMode())liveTempHour=value;else liveMinute=value}else mapHour=value;scheduleMap()});
 el('map-play').addEventListener('click',()=>{if(mapTimer!==null){stopPlay();return}el('map-play').textContent='Ⅱ';el('map-play').setAttribute('aria-label','Wiedergabe pausieren');mapTimer=setInterval(()=>{if(document.hidden){stopPlay();return}const d=realData();if(mapSource==='model'&&d?.nativeMap&&!nativeFieldsReady(d,fields[mapLayer],mapHour)&&mapFieldRequirements(d,fields[mapLayer],mapHour).some(([h,k])=>nativeFieldLoading.has(d.file+'/'+d.generated+'/'+h+'/'+k)))return;stepMap(1,true)},750)});
+// Re-evaluate at the civil hour boundary even if the user leaves the map open.
+// Returning from a suspended mobile tab must also immediately discard old times.
+let modelClockTimer=null;
+function refreshForecastClock(){if(activePage==='map'&&realForecastMap()&&!document.hidden){endMapGesture();renderMap();fetchNativeMapModel(mapModel);if(!realData())fetchRealModel(mapModel,true)}}
+function scheduleForecastClock(){if(modelClockTimer!==null)clearTimeout(modelClockTimer);const delay=3600000-Date.now()%3600000;modelClockTimer=setTimeout(()=>{refreshForecastClock();scheduleForecastClock()},delay+25)}
+document.addEventListener('visibilitychange',()=>{if(!document.hidden){refreshForecastClock();scheduleForecastClock()}});
+window.addEventListener('focus',()=>{refreshForecastClock();scheduleForecastClock()});
+scheduleForecastClock();
+setInterval(()=>{if(activePage==='map'&&realForecastMap()&&!document.hidden){fetchNativeMapModel(mapModel);if(!realData())fetchRealModel(mapModel,true)}},5*60000);
 const mapPointers=new Map();
 let pointerMoved=false;
 function centerView(lon,lat){
