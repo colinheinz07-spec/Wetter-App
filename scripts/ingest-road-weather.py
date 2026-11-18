@@ -92,7 +92,7 @@ def read_forecast(blob,catalog,now):
     result=[]
     for station,values in stations.items():
         ordered=sorted(values,key=lambda r:r[0])
-        result.append(catalog[station]+[[table[t],ts,rc,tl] for t,ts,rc,tl in ordered])
+        result.append(catalog[station]+[[[table[t],ts,rc,tl] for t,ts,rc,tl in ordered]])
     result.sort(key=lambda x:x[0])
     if len(result)<200 or not times:raise ValueError(f'SWS run has too few valid forecasts: {len(result)} stations')
     return times,result
