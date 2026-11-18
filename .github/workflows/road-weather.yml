@@ -1,0 +1,38 @@
+name: DWD compact road-weather forecast
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/ingest-road-weather.py'
+      - 'scripts/test-road-weather.py'
+      - '.github/workflows/road-weather.yml'
+  schedule:
+    - cron: '17 */2 * * *'
+permissions:
+  contents: write
+concurrency:
+  group: road-weather
+  cancel-in-progress: false
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+          fetch-depth: 1
+      - name: Validate parser
+        run: python3 scripts/test-road-weather.py
+      - name: Fetch latest DWD SWSMOS
+        run: python3 scripts/ingest-road-weather.py
+      - name: Publish compact snapshot only
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add data/road-weather.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'Refresh compact DWD road-weather snapshot'
+          git pull --rebase origin main
+          git push origin HEAD:main || (git pull --rebase origin main && git push origin HEAD:main)
