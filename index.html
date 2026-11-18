@@ -82,6 +82,42 @@
 .day-open .period{display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 4px}.day-open .period b{font-size:12px;overflow-wrap:anywhere}.day-open .period strong{font-size:18px}.day-open .period .rain{font-size:11px;color:var(--accent);margin-top:0}.day-open .day-summary{margin-top:12px}
 @media(max-width:500px),(min-width:760px) and (max-width:1050px){.day-open .period-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:355px){.real-day{grid-template-columns:minmax(0,1fr) 32px minmax(80px,auto) 16px;gap:5px}.real-day .day-icon{width:32px;height:32px}.real-day .tempgroup{gap:7px}}
+
+
+/* Separate lightweight hazards dashboard. Nothing is loaded until opened. */
+.nav{grid-template-columns:repeat(5,minmax(0,1fr))}
+.nav button{font-size:9px;min-width:0}
+.hazard-toolbar{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:0 0 13px}
+.hazard-toolbar p{font-size:12px;color:var(--muted);min-width:0}
+.hazard-toolbar button{padding:8px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface2);font-size:13px;white-space:nowrap}
+.hazard-note{font-size:12px;color:var(--muted);line-height:1.6;margin:12px 0}
+.hazard-note a{color:var(--accent2);text-decoration:underline}
+.hazard-summary{border:1px solid var(--line);border-radius:16px;padding:16px;background:var(--surface2)}
+.hazard-summary h3{margin:10px 0 4px;font-size:17px}
+.hazard-summary p{color:var(--muted);font-size:12px;line-height:1.5;margin:8px 0}
+.hazard-pill{display:inline-flex;background:#253c53;color:#dceafa;font-size:12px;font-weight:750;border-radius:99px;padding:6px 10px}
+.hazard-pill.high{color:#ffcf98;background:#67411b}
+.hazard-numbers{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:14px 0}
+.hazard-numbers div{background:var(--surface);border:1px solid var(--line);border-radius:11px;padding:11px;min-width:0}
+.hazard-numbers small{display:block;color:var(--muted);font-size:10px}
+.hazard-numbers b{font-size:21px;display:block;margin-top:7px}
+.hazard-subtitle{margin:20px 2px 10px;font-size:15px}
+.hazard-hours{display:grid;gap:0;max-height:370px;overflow:auto}
+.hazard-hour{display:flex;align-items:center;justify-content:space-between;gap:9px;padding:11px 5px;border-bottom:1px solid var(--line);font-size:12px}
+.hazard-hour span:last-child{text-align:right}
+.hazard-hour strong{font-size:14px}
+.hazard-danger{color:#ffbe83;font-weight:700}
+.hazard-stations{display:grid;gap:7px;margin-top:12px}
+.hazard-station{display:flex;justify-content:space-between;align-items:center;gap:11px;text-align:left;padding:13px;background:var(--surface2);border:1px solid var(--line);border-radius:12px;width:100%;min-width:0}
+.hazard-station>span:first-child{min-width:0}
+.hazard-station b{display:block;font-size:13px;overflow-wrap:anywhere}
+.hazard-station small{display:block;margin-top:3px;font-size:11px;color:var(--muted)}
+.hazard-station-right{text-align:right;flex-shrink:0}
+.hazard-detail{padding:14px;margin-top:12px;border:1px solid var(--line);background:var(--surface2);border-radius:12px;font-size:12px;line-height:1.5}
+.hazard-detail h3{margin-bottom:6px}
+.hazard-detail h4{margin-top:11px}
+@media(max-width:375px){.nav button{font-size:9px;padding-left:0;padding-right:0}.nav{gap:1px}.hazard-numbers b{font-size:18px}}
+
 </style>
 </head>
 <body>
@@ -163,6 +199,15 @@
       <div class="page-title"><h2>Expertenbereich</h2><p>Modelldaten, Analyse und Spezialparameter</p></div>
       <div class="expert-page-grid"><div class="panel"><h2>Wettermodelle</h2><p class="muted small" style="margin:5px 0 15px">Offizielle Open-Data-Modelle · aufbereitete Europakarten</p><div class="models" id="model-list"></div></div>
       <div class="panel"><h2>Atmosphärenanalyse</h2><p class="muted small" style="margin-top:5px">Parameter nach Themen · Modellquelle je Wert</p><button id="expert-open-map" class="map-link">Modellkarten öffnen <span>›</span></button><div class="expert-groups" id="expert-data"></div><p class="expert-note">Nicht angebundene Parameter werden als — angezeigt. Abgeleitete Gefahrenindizes werden erst mit fachlich validierten Berechnungen und echten Modelldaten aktiviert.</p></div></div>
+    </section>
+
+    <section id="page-hazards" class="page" aria-label="Straßenwetter und Hochwasser">
+      <div class="page-title"><h2>Straßenwetter &amp; Hochwasser</h2><p>Amtliche Daten · ortsbezogene Informationen</p></div>
+      <div class="hazard-toolbar"><p id="hazard-selected-place">Standort wird übernommen …</p><button id="hazard-refresh" type="button">↻ Aktualisieren</button></div>
+      <div class="segmented" aria-label="Gefahrenart"><button type="button" data-hazard-tab="road" class="active" aria-pressed="true">🛣️ Straßenwetter</button><button type="button" data-hazard-tab="water" aria-pressed="false">🌊 Pegel &amp; Hochwasser</button></div>
+      <section id="hazard-road" class="panel"><div class="section-head"><div><h2>Fahrbahnzustand</h2><p>DWD-Straßenwetterprognose am nächsten verfügbaren Messstandort</p></div></div><div id="hazard-road-content"><p class="hazard-note">Öffne Straßenwetter, um die DWD-Daten zu laden.</p></div></section>
+      <section id="hazard-water" class="panel" hidden><div class="section-head"><div><h2>Wasserstände</h2><p>Aktuelle Pegel der Wasserstraßen- und Schifffahrtsverwaltung (WSV)</p></div></div><div id="hazard-water-content"><p class="hazard-note">Öffne Hochwasser, um Pegel in der Nähe zu suchen.</p></div></section>
+      <p class="hazard-note">Bei Glätte und Hochwasser sind amtliche Warnungen und Straßensperrungen maßgeblich. Hier werden weder Sperrungen noch Warnstufen ohne belastbare Daten behauptet.</p>
     </section>
     <section id="page-settings" class="page" aria-label="Einstellungen">
       <button id="settings-back" class="settings-back">‹ Zurück zum Wetter</button><div class="page-title"><h2>Einstellungen</h2><p>Deine App · lokal auf diesem Gerät gespeichert</p></div>
@@ -265,8 +310,9 @@ function dayRow(d,i){
  const warningNote=i===1?'<div class="day-warning">'+ui('alert',17)+'<span>Glätte · 05–09 Uhr und 17–20 Uhr<br>Besonders auf Nebenstrecken und Brücken.</span></div>':'';
  return '<button class="day" data-day="'+i+'" aria-expanded="'+(openDay===i)+'"><div><div class="dayname">'+d[0]+warning+'</div><div class="daydate">'+d[1]+'</div></div>'+weather(d[4],d[5])+'<div class="tempgroup"><span class="low">'+degrees(d[2])+'</span><div class="range"><div class="range-fill" style="left:'+left+'%;width:'+width+'%"></div></div><span class="high">'+degrees(d[3])+'</span></div>'+ui('chevron',18,'chev')+'</button>'+(openDay===i?'<div class="day-open"><p class="day-summary">'+d[5]+'</p>'+warningNote+'<div class="period-grid">'+d[6].map((p,j)=>'<div class="period"><span>'+p[0]+'</span>'+weather(p[2])+'<b>'+degrees(p[1])+'</b><span class="rain">'+p[3]+' %</span><span class="rain">'+fmt(extra.prec[j])+' mm</span>'+((i===1&&(j===0||j===2))?'<span class="period-risk">Glätte</span>':'')+'</div>').join('')+'</div><p class="section-label">Tageswerte</p><div class="day-values">'+daysValues.map(parameterValue).join('')+'</div></div>':'')
 }
-function setPage(page){if(page!=='map')stopPlay();activePage=page;document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active',p.id==='page-'+page));document.querySelectorAll('[data-page]').forEach(b=>{b.classList.toggle('active',b.dataset.page===page);if(b.dataset.page===page)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});window.scrollTo(0,0);if(weatherRealEnabled&&page==='weather')renderWeather();if(weatherRealEnabled&&page==='warnings')renderLocalWarnings();if(weatherRealEnabled&&page==='expert')renderRealExpert();if(page==='map'){renderMap();if(mapSource==='model'&&modelDataMode==='real')fetchRealModel(mapModel)}}
-const nav=[['weather','Wetter','weather'],['map','Karte','map'],['warnings','Warnungen','alert'],['expert','Experten','chart']];
+function setPage(page){if(page!=='map')stopPlay();activePage=page;document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active',p.id==='page-'+page));document.querySelectorAll('[data-page]').forEach(b=>{b.classList.toggle('active',b.dataset.page===page);if(b.dataset.page===page)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});window.scrollTo(0,0);if(weatherRealEnabled&&page==='weather')renderWeather();if(weatherRealEnabled&&page==='warnings')renderLocalWarnings();if(weatherRealEnabled&&page==='expert')renderRealExpert();if(page==='map'){renderMap();if(mapSource==='model'&&modelDataMode==='real')fetchRealModel(mapModel)}if(page==='hazards')window.WeatherHazards?.open()}
+window.WEATHER_APP_CONTEXT={getLocation:()=>({...location})};
+const nav=[['weather','Wetter','weather'],['map','Karte','map'],['warnings','Warnungen','alert'],['hazards','Gefahren','alert'],['expert','Experten','chart']];
 el('navigation').innerHTML=nav.map(([id,label,icon])=>'<button data-page="'+id+'" class="'+(id==='weather'?'active':'')+'" '+(id==='weather'?'aria-current="page"':'')+'>'+ui(icon,24)+label+'</button>').join('');
 document.querySelectorAll('[data-page]').forEach(b=>b.addEventListener('click',()=>setPage(b.dataset.page)));
 // Weather-independent map layer. Geometry: © GeoBasis-DE / BKG 2019 (VG250
@@ -3003,6 +3049,7 @@ el('location-open').addEventListener('click',openDialog);el('search-open').addEv
 weatherRealEnabled=true;initPreferences();initModelData();initWeatherData();initRealLive();
 })();
 </script>
+<script src="assets/hazards.js" defer></script>
 </body>
 </html>
 
