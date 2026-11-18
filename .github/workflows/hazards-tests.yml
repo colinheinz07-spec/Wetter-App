@@ -1,0 +1,34 @@
+name: Road weather and flood module tests
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'index.html'
+      - 'assets/hazards.js'
+      - 'scripts/test-hazards.cjs'
+      - 'scripts/ingest-road-weather.py'
+      - 'scripts/test-road-weather.py'
+      - '.github/workflows/hazards-tests.yml'
+permissions:
+  contents: read
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          filter: blob:none
+          sparse-checkout: |
+            index.html
+            assets
+            scripts
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check hazard UI wiring and JavaScript syntax
+        run: node scripts/test-hazards.cjs
+      - name: Check SWSMOS parsing and freshness guards
+        run: python3 scripts/test-road-weather.py
