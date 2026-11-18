@@ -1,0 +1,56 @@
+name: Build lightweight SPCK app branch
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'index.html'
+      - 'assets/**'
+      - 'README.md'
+      - '.github/workflows/spck-lite.yml'
+permissions:
+  contents: write
+concurrency:
+  group: spck-lite
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          filter: blob:none
+          persist-credentials: false
+          sparse-checkout: |
+            index.html
+            README.md
+            assets
+      - name: Publish app source without model data or Git history
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh auth setup-git
+          dir="$RUNNER_TEMP/spck-lite"
+          mkdir -p "$dir"
+          git -C "$dir" init
+          git -C "$dir" remote add origin "https://github.com/${{ github.repository }}.git"
+          ref="refs/heads/spck-lite"
+          old=$(git -C "$dir" ls-remote --heads origin "$ref" | cut -f1)
+          if [ -n "$old" ]; then
+            git -C "$dir" fetch --depth=1 --filter=blob:none origin "$ref"
+            test "$(git -C "$dir" show -s --format=%s FETCH_HEAD)" = 'Generated lightweight SPCK app'
+            test "$(git -C "$dir" show -s --format=%ae FETCH_HEAD)" = '41898282+github-actions[bot]@users.noreply.github.com'
+            test -z "$(git -C "$dir" cat-file -p FETCH_HEAD | sed -n '/^parent /p')"
+          fi
+          cp index.html README.md "$dir/"
+          cp -R assets "$dir/"
+          test -s "$dir/index.html" && test -s "$dir/assets/basemap.js" && test -s "$dir/assets/geography.js" && test -s "$dir/assets/hazards.js"
+          git -C "$dir" config user.name 'github-actions[bot]'
+          git -C "$dir" config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git -C "$dir" add index.html README.md assets
+          tree=$(git -C "$dir" write-tree)
+          commit=$(git -C "$dir" commit-tree "$tree" -m 'Generated lightweight SPCK app')
+          git -C "$dir" push --force-with-lease="$ref:$old" origin "$commit:$ref"
