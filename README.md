@@ -1,5 +1,23 @@
 # Wetter-App
 
+## Schlanke SPCK-Version (ohne Modellraster)
+
+Für SPCK wird aus `index.html`, `assets/` und dieser README automatisch ein eigenständiger Branch **`spck-lite`** gebaut. Er enthält keine Wettermodell-Rohdaten und **keinen** gemeinsamen Git-Verlauf mit dem umfangreichen Daten-Repository.
+
+- Für eine frische, kompakte SPCK-Installation ZIP herunterladen: https://github.com/colinheinz07-spec/Wetter-App/archive/refs/heads/spck-lite.zip und in SPCK als ZIP-Projekt importieren.
+- Die ursprüngliche, gigabytegroße SPCK-Kopie erst entfernen, nachdem eigene lokale Änderungen gesichert und die neue Version getestet wurden.
+- Die Modellkarten, Ortsprognosen und Radarprodukte werden nach Bedarf aus den bestehenden veröffentlichten Datenquellen geladen. **Die ZIP-Version ist kein Git-Synchronisationsprojekt.** Weitere Änderungen an `main` werden im Branch automatisch neu veröffentlicht, aber in SPCK muss das ZIP erneut importiert werden.
+- Die großen Datendateien und der Git-Verlauf im Original-Repository sind damit **nicht** automatisch kleiner geworden.
+
+## Straßenwetter & Hochwasser
+
+Der Navigationsbereich **Gefahren** hat die Tabs „Straßenwetter“ und „Pegel & Hochwasser“. Beide Datenquellen werden erst beim Öffnen abgerufen, damit die Startseite klein bleibt.
+
+- **Straßenwetter:** `scripts/ingest-road-weather.py` bereitet die frei veröffentlichten stündlichen DWD-SWSMOS-Fahrbahnprognosen als kleines `data/road-weather.json` auf. Angezeigt wird die nächste gültige Station bis 55 km Entfernung, mit Fahrbahn-/Lufttemperatur, prognostiziertem Straßenzustand, Lauf- und Datenzeit. Ein Stationswert gilt **nicht automatisch für alle Straßen** in der Umgebung. Fehlende oder alte Daten werden nicht als aktuell ausgegeben.
+- **Hochwasser:** Die WSV-API PEGELONLINE stellt Bundeswasserstraßen-Pegel und teils Wasserstandsvorhersagen bereit. Die Anzeige listet nahe Pegel, Messzeit und 24-h-Veränderung; wo möglich auch amtliche Wasserstandsvorhersagen. Keine künstliche lokale Hochwasserwarnstufe aus absoluten Wasserständen. Kleine Flüsse und Landespegel sind teilweise nicht von PEGELONLINE abgedeckt; dafür Links zu den amtlichen Hochwasserzentralen.
+- Sicherheitsrelevante Entscheidungen erfordern offizielle amtliche Hochwasser- und Straßenwarnungen. Die Anzeige ist keine Meldung einer befahrbaren oder gesperrten Straße.
+- Testen: `node scripts/test-hazards.cjs`, `python3 scripts/test-road-weather.py`.
+
 ## Wetterdaten
 
 Die App nutzt reproduzierbar aufbereitete Modellraster (keine Stationswerte als
