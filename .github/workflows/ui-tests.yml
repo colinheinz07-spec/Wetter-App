@@ -9,6 +9,24 @@ on:
 permissions:
   contents: read
 jobs:
+  data-performance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            /index.html
+            /assets/
+            /scripts/test-data-performance*.cjs
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/test-data-performance-unit.cjs
+      - run: npm install --no-save playwright
+      - run: npx playwright install --with-deps chromium
+      - run: node scripts/test-data-performance.cjs
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -28,4 +46,5 @@ jobs:
       - run: npm install --no-save playwright
       - run: npx playwright install --with-deps chromium
       - run: node scripts/test-mobile.cjs
+
 
