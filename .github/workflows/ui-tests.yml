@@ -39,6 +39,7 @@ jobs:
       - run: node scripts/test-future-map-times.cjs
       - run: node scripts/test-expert-stability.cjs
       - run: python3 -m pip install numpy --break-system-packages
+      - run: python3 scripts/test-severe-indices.py
       - run: python3 scripts/test-native-temperature.py
       - run: python3 scripts/test-map-cadence.py
       - run: python3 -m py_compile scripts/ingest-icon-temperature.py scripts/ingest-global-temperature.py scripts/native-temperature.py scripts/ingest-native-maps.py scripts/ingest-icon.py scripts/ingest-gfs.py scripts/ingest-ifs.py
@@ -46,5 +47,6 @@ jobs:
       - run: npm install --no-save playwright
       - run: npx playwright install --with-deps chromium
       - run: node scripts/test-mobile.cjs
+
 
 

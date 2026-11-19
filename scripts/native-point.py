@@ -19,29 +19,30 @@ SURFACE = CORE | {'winddir', 'gust', 'rh2', 'visibility', 'ww', 'ptype','orog','
     'srh03', 'lcl', 'lfc', 'el', 'dcape', 'thetae', 'lapse', 'lapse7',
     't850', 't700', 't500', 'rh850', 'rh700', 'rh500', 'z850', 'z700', 'z500',
     'u850', 'v850', 'u700', 'v700', 'u500', 'v500', 'snownew', 'wind100',
-    'sunhours', 'uv', 'pop', 'li', 'stp', 'scp', 'hail', 'downburst'} | {
+    'sunhours', 'uv', 'pop', 'li', 'stp', 'scp', 'ship', 'hail', 'downburst'} | {
     f'{field}{level}' for field in ('t','rh','z','u','v')
     for level in (1000,975,950,925,900,850,800,700,600,500,400,300,250,200,150,100)}
 
 class PointTiles:
-    def __init__(self, output, model, run, generated, hours, size=24, extrema=None):
+    def __init__(self, output, model, run, generated, hours, size=24, extrema=None, required=None):
         self.output=Path(output); self.output.mkdir(parents=True, exist_ok=True)
         self.meta=dict(schema=3,model=model,run=run,generated=generated,hours=hours,
                        tileSize=size,scales={},frames={},extremaWindowHours=extrema)
         self.temp=tempfile.TemporaryDirectory(prefix='weather-point-')
+        self.required=CORE if required is None else set(required)
         self.keys=set()
 
     def add(self, grid, hour, packed, scales):
         if self.meta.get('grid',grid)!=grid: raise ValueError('Point grid changed')
         self.meta['grid']=grid
-        if not CORE<=packed.keys(): raise ValueError('Missing point core field')
+        if not self.required<=packed.keys(): raise ValueError('Missing point core field')
         shape=(grid['ny'],grid['nx']); arrays={}
         for k in SURFACE & packed.keys():
             raw=base64.b64decode(packed[k],validate=True)
             if len(raw)!=shape[0]*shape[1]*2: raise ValueError(f'Wrong point field shape {k}')
             a=np.frombuffer(raw,dtype='<i2').reshape(shape)
             if not np.any(a!=grid['missing']):
-                if k in CORE: raise ValueError(f'Empty point field {k}')
+                if k in self.required: raise ValueError(f'Empty point field {k}')
                 continue
             scale=scales.get(k,grid['scale'])
             if k in self.meta['scales'] and self.meta['scales'][k]!=scale: raise ValueError('Point scale changed')
@@ -63,4 +64,5 @@ class PointTiles:
             with gzip.open(self.output/f'point-{key}.json.gz','wt',compresslevel=5) as stream: json.dump(packet,stream,separators=(',',':'))
         (self.output/'point-index.json').write_text(json.dumps(self.meta,separators=(',',':')))
         self.temp.cleanup()
+
 

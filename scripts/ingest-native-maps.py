@@ -15,6 +15,7 @@ HERE=Path(__file__).parent
 PRODUCTS=('icon-d2','icon-eu','ifs','ifs-short','aifs','aifs-ens-control','gfs')
 CORE={'temp2','dew','wind','slp','cloud','rainTotal'}
 GERMANY=(3.8,16.7,46.3,55.8)
+DIAGNOSTICS=runpy.run_path(str(HERE/'severe-indices.py'))['add_diagnostics']
 
 def germany_hours(model):
     if model=='icon-d2':return list(range(49))
@@ -27,7 +28,7 @@ def germany_hours(model):
 class Maps:
     def __init__(self,root,model,run,hours,points=True,core_hours=None,point_hours=None):
         self.root=Path(root);self.root.mkdir(parents=True,exist_ok=True)
-        self.meta=dict(schema=2,profileVersion=2,model=model,run=run,generated=dt.datetime.now(dt.timezone.utc).isoformat(),hours=hours,frames={},scales={})
+        self.meta=dict(schema=2,profileVersion=3,model=model,run=run,generated=dt.datetime.now(dt.timezone.utc).isoformat(),hours=hours,frames={},scales={},derivedFields={})
         self.core_hours=set(hours if core_hours is None else core_hours)
         self.meta['coreHours']=[h for h in hours if h in self.core_hours]
         point_hours=hours if point_hours is None else point_hours
@@ -40,6 +41,11 @@ class Maps:
         if grid['nx']*grid['ny']>2000000:raise ValueError('Unexpected grid size')
         import base64
         expected=grid['nx']*grid['ny']*2
+        original=set(frame)
+        frame,scales=DIAGNOSTICS(grid,frame,scales)
+        derived=sorted(set(frame)-original)
+        self.meta['derivedFields'][str(h)]=derived
+        if self.points:self.points.meta.setdefault('derivedFields',{})[str(h)]=derived
         # Theta-e (Bolton) derived from the same native 850-hPa T/RH cell.
         if 't850' in frame and 'rh850' in frame:
             def unpack(field):
@@ -146,5 +152,6 @@ def main():
             writer.add(grid,h,frame,api['SCALES'])
     writer.finish()
 if __name__=='__main__':main()
+
 
 

@@ -2,12 +2,12 @@ name: Original-resolution model maps
 on:
   workflow_dispatch:
   pull_request:
-    paths: ['.github/workflows/native-maps.yml','scripts/ingest-native-maps.py','scripts/native-point.py','scripts/ingest-icon.py','scripts/ingest-gfs.py','scripts/ingest-ifs.py']
+    paths: ['.github/workflows/native-maps.yml','scripts/ingest-native-maps.py','scripts/severe-indices.py','scripts/native-point.py','scripts/ingest-icon.py','scripts/ingest-gfs.py','scripts/ingest-ifs.py']
   schedule:
     - cron: '25 1,7,13,19 * * *'
   push:
     branches: [main]
-    paths: ['.github/workflows/native-maps.yml','scripts/ingest-native-maps.py','scripts/native-point.py','scripts/ingest-icon.py','scripts/ingest-gfs.py','scripts/ingest-ifs.py']
+    paths: ['.github/workflows/native-maps.yml','scripts/ingest-native-maps.py','scripts/severe-indices.py','scripts/native-point.py','scripts/ingest-icon.py','scripts/ingest-gfs.py','scripts/ingest-ifs.py']
 permissions:
   contents: write
 concurrency:
@@ -61,7 +61,7 @@ jobs:
             test "$(git -C "$dir" show -s --format=%s FETCH_HEAD)" = "Generated native map snapshot $MODEL"
             test "$(git -C "$dir" show -s --format=%ae FETCH_HEAD)" = "41898282+github-actions[bot]@users.noreply.github.com"
             test -z "$(git -C "$dir" cat-file -p FETCH_HEAD | sed -n '/^parent /p')"
-            git -C "$dir" show FETCH_HEAD:index.json | python -c 'import json,sys; m=json.load(sys.stdin); print(m["run"] if m.get("profileVersion")==2 else "")' > "$RUNNER_TEMP/native-previous-run"
+            git -C "$dir" show FETCH_HEAD:index.json | python -c 'import json,sys; m=json.load(sys.stdin); print(m["run"] if m.get("profileVersion")==3 else "")' > "$RUNNER_TEMP/native-previous-run"
           fi
           printf '%s\n' "$old" > "$RUNNER_TEMP/native-old"
       - name: Import source-resolution weather fields
@@ -92,5 +92,6 @@ jobs:
           if [ -f "$dir/point-index.json" ]; then git -C "$dir" add -- point-index.json; fi
           git -C "$dir" commit -m "Generated native map snapshot $MODEL"
           git -C "$dir" push --force-with-lease="$ref:$old" origin "HEAD:$ref"
+
 
 
