@@ -1,0 +1,40 @@
+name: EUMETNET OPERA radar
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '1,6,11,16,21,26,31,36,41,46,51,56 * * * *'
+  push:
+    branches: [main]
+    paths: ['scripts/ingest-opera-radar.py', '.github/workflows/opera-radar.yml']
+permissions:
+  contents: write
+concurrency:
+  group: opera-radar
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts/ingest-opera-radar.py
+          sparse-checkout-cone-mode: false
+      - run: pip install numpy h5py pyproj
+      - run: python scripts/ingest-opera-radar.py
+      - name: Publish compressed OPERA rate snapshot
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          ref=refs/heads/opera-radar-data
+          previous=$(git ls-remote --heads origin "$ref" | cut -f1)
+          if test -n "$previous"; then
+            git fetch --depth=1 origin "$previous"
+            test "$(git ls-tree -r --name-only "$previous")" = opera-radar.json.gz
+            test "$(git log -1 --format=%s "$previous")" = 'Generated OPERA RATE snapshot'
+          fi
+          blob=$(git hash-object -w data/opera-radar.json.gz)
+          if test -n "$previous" && test "$(git rev-parse "$previous:opera-radar.json.gz")" = "$blob"; then exit 0; fi
+          tree=$(printf '100644 blob %s\topera-radar.json.gz\n' "$blob" | git mktree)
+          commit=$(git commit-tree "$tree" -m 'Generated OPERA RATE snapshot')
+          git push --force-with-lease="$ref:$previous" origin "$commit:$ref"
