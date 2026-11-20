@@ -11,9 +11,9 @@ import tempfile
 import numpy as np
 
 CORE = {'temp2', 'dew', 'wind', 'slp', 'cloud', 'rainTotal'}
-QUICK = CORE | {'ww','ptype','rh2','gust','winddir','visibility','lowcloud','snowdepth','snowline','freezing','tground'}
+QUICK = CORE | {'ww','ptype','rh2','gust','winddir','visibility','lowcloud','snowdepth','snowline','freezing','tground','snowWater','snowDensity','midcloud','highcloud','tsnow'}
 SURFACE = CORE | {'winddir', 'gust', 'rh2', 'visibility', 'ww', 'ptype','orog','ps','u10','v10',
-    'lowcloud', 'midcloud', 'highcloud', 'tground', 'ground', 'snowdepth',
+    'lowcloud', 'midcloud', 'highcloud', 'tground', 'ground', 'snowdepth', 'snowWater','snowDensity','snowWaterTotal','snowGspTotal','snowConTotal','u100','v100',
     'tmin', 'tmax', 'tsnow', 'snowline', 'freezing', 'mlcape', 'mlcin',
     'cape', 'cin', 'mucape', 'mucin', 'pwat', 'convTotal', 'solarTotal',
     'cloudbase', 'cloudtop', 'deepcloudtop', 's01', 's03', 's06', 'srh01',
