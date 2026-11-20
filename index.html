@@ -1863,6 +1863,21 @@ let weatherRealEnabled=false,stationData=null,stationRequest=null;
 const dataRoot='https://raw.githubusercontent.com/colinheinz07-spec/Wetter-App/main/data/';
 const localFormat=(v,digits=1)=>Number.isFinite(v)?(Math.abs(v)<.5*10**(-digits)?0:v).toLocaleString('de-DE',{maximumFractionDigits:digits}):'—';
 const temperatureText=v=>Number.isFinite(v)?String(Math.sign(v)*Math.round(Math.abs(v))||0):'—';
+function modelComfort(t,windKmh,rh){
+ if(!Number.isFinite(t))return {value:NaN,label:'Kein belastbarer Index'};
+ if(Number.isFinite(windKmh)&&t<=10&&windKmh>=4.8){
+  const v=Math.pow(windKmh,.16);
+  return {value:13.12+.6215*t-11.37*v+.3965*t*v,label:'Windchill · aus Modellwind'};
+ }
+ if(t>=27&&Number.isFinite(rh)&&rh>=40&&rh<=100){
+  const F=t*9/5+32,H=rh;
+  let HI=-42.379+2.04901523*F+10.14333127*H-.22475541*F*H-.00683783*F*F-.05481717*H*H+.00122874*F*F*H+.00085282*F*H*H-.00000199*F*F*H*H;
+  if(H<13&&F>=80&&F<=112)HI-=((13-H)/4)*Math.sqrt((17-Math.abs(F-95))/17);
+  if(H>85&&F>=80&&F<=87)HI+=((H-85)/10)*((87-F)/5);
+  return {value:(HI-32)*5/9,label:'Hitzeindex · aus Temperatur & Feuchte'};
+ }
+ return {value:NaN,label:'Kein belastbarer Index für diese Bedingungen'};
+}
 const displayValue=(v,unit)=>unit==='°C'?temperatureText(v):localFormat(v);
 const localTime=(t,opts={})=>new Date(t).toLocaleString('de-DE',{timeZone:'Europe/Berlin',...opts});
 const localDay=t=>new Date(t).toLocaleDateString('sv-SE',{timeZone:'Europe/Berlin'});
