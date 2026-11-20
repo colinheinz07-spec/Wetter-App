@@ -9,6 +9,8 @@ on:
 permissions:
   contents: write
 jobs:
+  phase:
+    uses: ./.github/workflows/radar-phase.yml
   observation:
     concurrency:
       group: radar-ry
