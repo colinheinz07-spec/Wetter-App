@@ -8,37 +8,55 @@ on:
     paths: ['scripts/ingest-radar-points.py', 'scripts/ingest-radar-nowcast.py', '.github/workflows/radar-points.yml']
 permissions:
   contents: write
-concurrency:
-  group: radar-points
-  cancel-in-progress: false
 jobs:
-  import:
+  observation:
+    concurrency:
+      group: radar-ry
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts/ingest-radar-points.py
+          sparse-checkout-cone-mode: false
+      - run: sudo apt-get update && sudo apt-get install -y python3-h5py python3-numpy python3-pyproj
+      - run: mkdir -p data && /usr/bin/python3 scripts/ingest-radar-points.py
+      - name: Publish rolling RY observation independently of main and RV
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          ref=refs/heads/radar-observation-data
+          previous=$(git ls-remote --heads origin "$ref" | cut -f1)
+          if test -n "$previous"; then
+            git fetch --depth=1 origin "$previous"
+            test "$(git ls-tree -r --name-only "$previous")" = radar-points.json.gz
+            test "$(git log -1 --format=%s "$previous")" = 'Generated DWD RY snapshot'
+          fi
+          blob=$(git hash-object -w data/radar-points.json.gz)
+          if test -n "$previous" && test "$(git rev-parse "$previous:radar-points.json.gz")" = "$blob"; then exit 0; fi
+          tree=$(printf '100644 blob %s\tradar-points.json.gz\n' "$blob" | git mktree)
+          commit=$(git commit-tree "$tree" -m 'Generated DWD RY snapshot')
+          git push --force-with-lease="$ref:$previous" origin "$commit:$ref"
+  forecast:
+    concurrency:
+      group: radar-rv
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts/ingest-radar-nowcast.py
+          sparse-checkout-cone-mode: false
       - run: sudo apt-get update && sudo apt-get install -y python3-h5py python3-numpy python3-pyproj
-      - run: /usr/bin/python3 scripts/ingest-radar-points.py
-      - run: /usr/bin/python3 scripts/ingest-radar-nowcast.py
-        continue-on-error: true
-      - run: |
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add data/radar-points.json.gz
-          if git diff --cached --quiet; then exit 0; fi
-          git commit -m 'Refresh DWD quantitative radar raster'
-          git pull --rebase origin main
-          git push origin HEAD:main || (git pull --rebase origin main && git push origin HEAD:main)
+      - run: mkdir -p data && /usr/bin/python3 scripts/ingest-radar-nowcast.py
       - name: Publish latest RV snapshot separately
-        if: ${{ !cancelled() }}
         run: |
-          test -f data/radar-nowcast.json.gz || exit 0
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           ref=refs/heads/radar-nowcast-data
           previous=$(git ls-remote --heads origin "$ref" | cut -f1)
-          # Only replace snapshots produced by this step; never touch main or an
-          # existing branch containing any unrelated content.
           if test -n "$previous"; then
             git fetch --depth=1 origin "$previous"
             test "$(git ls-tree -r --name-only "$previous")" = radar-nowcast.json.gz
