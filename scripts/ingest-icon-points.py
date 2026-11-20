@@ -17,7 +17,7 @@ PointTiles=runpy.run_path(str(HERE/'native-point.py'))['PointTiles']
 CORE=API['VARIABLES']
 # Optional DWD single-level fields; absent fields never substitute zero.
 EXTRA={k:v for k,v in API['EXTRA'].items() if k in {
-    'vmax_10m','h_snow','vis','relhum_2m','clcl','clcm','clch','t_g','t_5cm',
+    'vmax_10m','h_snow','w_snow','rho_snow','snow_gsp','snow_con','vis','relhum_2m','clcl','clcm','clch','t_g','t_5cm',
     'ww','tmin_2m','tmax_2m','t_snow','snowlmt','hzerocl','cape_ml','cin_ml',
     'cape_mu','cin_mu','tqv','bas_con','top_con','htop_dc'}}
 EXTRA['vis']=('visibility',.001,0,.01)  # 10 m precision for dense-fog thresholds
