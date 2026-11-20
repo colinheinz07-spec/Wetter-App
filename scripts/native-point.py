@@ -11,6 +11,7 @@ import tempfile
 import numpy as np
 
 CORE = {'temp2', 'dew', 'wind', 'slp', 'cloud', 'rainTotal'}
+QUICK = CORE | {'ww','ptype','rh2','gust','winddir','visibility','lowcloud','snowdepth','snowline','freezing','tground'}
 SURFACE = CORE | {'winddir', 'gust', 'rh2', 'visibility', 'ww', 'ptype','orog','ps','u10','v10',
     'lowcloud', 'midcloud', 'highcloud', 'tground', 'ground', 'snowdepth',
     'tmin', 'tmax', 'tsnow', 'snowline', 'freezing', 'mlcape', 'mlcin',
@@ -24,13 +25,14 @@ SURFACE = CORE | {'winddir', 'gust', 'rh2', 'visibility', 'ww', 'ptype','orog','
     for level in (1000,975,950,925,900,850,800,700,600,500,400,300,250,200,150,100)}
 
 class PointTiles:
-    def __init__(self, output, model, run, generated, hours, size=24, extrema=None, required=None):
+    def __init__(self, output, model, run, generated, hours, size=24, extrema=None, required=None, quick=False):
         self.output=Path(output); self.output.mkdir(parents=True, exist_ok=True)
         self.meta=dict(schema=3,model=model,run=run,generated=generated,hours=hours,
                        tileSize=size,scales={},frames={},extremaWindowHours=extrema)
         self.temp=tempfile.TemporaryDirectory(prefix='weather-point-')
         self.required=CORE if required is None else set(required)
         self.keys=set()
+        self.quick = quick
 
     def add(self, grid, hour, packed, scales):
         if self.meta.get('grid',grid)!=grid: raise ValueError('Point grid changed')
@@ -58,10 +60,20 @@ class PointTiles:
 
     def finish(self):
         if set(self.meta['frames'])!={str(h) for h in self.meta['hours']}: raise ValueError('Incomplete point forecast')
+        quick_dir = self.output/'quick'
+        qhours = self.meta['hours'][:13]
+        if self.quick:
+            quick_dir.mkdir(exist_ok=True)
+            qframes = {str(h): sorted(QUICK & set(self.meta['frames'][str(h)])) for h in qhours}
+            qmeta = {**self.meta, 'hours': qhours, 'frames': qframes, 'scales': {k:v for k,v in self.meta['scales'].items() if k in QUICK}, 'quick': True}
         for key in sorted(self.keys):
             with open(Path(self.temp.name)/(key+'.jsonl')) as stream: frames=dict(json.loads(line) for line in stream)
             packet=dict(schema=3,run=self.meta['run'],generated=self.meta['generated'],key=key,frames=frames)
             with gzip.open(self.output/f'point-{key}.json.gz','wt',compresslevel=5) as stream: json.dump(packet,stream,separators=(',',':'))
+            if self.quick:
+                qpacket = {**packet, 'frames': {str(h): {k:frames[h][k] for k in qframes[str(h)]} for h in qhours}}
+                with gzip.open(quick_dir/f'point-{key}.json.gz','wt',compresslevel=5) as stream: json.dump(qpacket,stream,separators=(',',':'))
+        if self.quick: (quick_dir/'point-index.json').write_text(json.dumps(qmeta,separators=(',',':')))
         (self.output/'point-index.json').write_text(json.dumps(self.meta,separators=(',',':')))
         self.temp.cleanup()
 

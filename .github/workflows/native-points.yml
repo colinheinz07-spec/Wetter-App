@@ -62,6 +62,7 @@ jobs:
           git -C "$dir" config user.name 'github-actions[bot]'
           git -C "$dir" config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git -C "$dir" add -- '*.json.gz' point-index.json
+          test ! -d "$dir/quick" || git -C "$dir" add quick
           if [ -d "$dir/anchor" ]; then git -C "$dir" add anchor; fi
           git -C "$dir" commit -m "Generated hourly point snapshot $MODEL"
           git -C "$dir" push --force-with-lease="$ref:$old" origin "HEAD:$ref"

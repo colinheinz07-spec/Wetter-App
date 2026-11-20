@@ -38,7 +38,7 @@ def build(model,stamp,offers,hours,output):
     xx,yy=x[ix],y[iy];step=float(xx[1]-xx[0])
     if not np.allclose(np.diff(xx),step,atol=1e-6) or not np.allclose(np.diff(yy),step,atol=1e-6):raise ValueError('Irregular native grid')
     grid=dict(west=float(xx[0]),south=float(yy[0]),step=step,nx=len(xx),ny=len(yy),scale=.1,missing=-32768)
-    writer=PointTiles(output,API['MODELS'][model]['name'],run,gen,hours,extrema=6)
+    writer=PointTiles(output,API['MODELS'][model]['name'],run,gen,hours,extrema=6,quick=True)
     scales={k:s for k,_,_,s in EXTRA.values()}
     def read(url,h,interval=None):
         a,b,v=API['sample_grib'](API['download'](url),None,None,stamp,h,interval)

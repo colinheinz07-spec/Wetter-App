@@ -1,0 +1,40 @@
+name: DWD HymecNG surface precipitation phase
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '4,9,14,19,24,29,34,39,44,49,54,59 * * * *'
+  push:
+    branches: [main]
+    paths: ['scripts/ingest-radar-phase.py', '.github/workflows/radar-phase.yml']
+permissions:
+  contents: write
+concurrency:
+  group: radar-phase
+  cancel-in-progress: false
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts/ingest-radar-phase.py
+          sparse-checkout-cone-mode: false
+      - run: sudo apt-get update && sudo apt-get install -y python3-h5py python3-numpy python3-pyproj
+      - run: /usr/bin/python3 scripts/ingest-radar-phase.py
+      - name: Publish rolling phase snapshot only
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          ref=refs/heads/radar-phase-data
+          previous=$(git ls-remote --heads origin "$ref" | cut -f1)
+          if test -n "$previous"; then
+            git fetch --depth=1 origin "$previous"
+            test "$(git ls-tree -r --name-only "$previous")" = radar-phase.json.gz
+            test "$(git log -1 --format=%s "$previous")" = 'Generated DWD HymecNG snapshot'
+          fi
+          blob=$(git hash-object -w data/radar-phase.json.gz)
+          if test -n "$previous" && test "$(git rev-parse "$previous:radar-phase.json.gz")" = "$blob"; then exit 0; fi
+          tree=$(printf '100644 blob %s\tradar-phase.json.gz\n' "$blob" | git mktree)
+          commit=$(git commit-tree "$tree" -m 'Generated DWD HymecNG snapshot')
+          git push --force-with-lease="$ref:$previous" origin "$commit:$ref"
