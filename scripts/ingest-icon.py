@@ -28,6 +28,8 @@ VARIABLES = ("t_2m", "td_2m", "u_10m", "v_10m", "pmsl", "tot_prec", "clct")
 # Optional products: do not invalidate a working base forecast if a field
 # is absent from a particular cycle/step. All output uses explicit units.
 EXTRA = {"vmax_10m":("gust",3.6,0,.1),"h_snow":("snowdepth",100,0,.1),
+         "w_snow":("snowWater",1,0,.1),"rho_snow":("snowDensity",1,0,1),
+         "snow_gsp":("snowGspTotal",1,0,.1),"snow_con":("snowConTotal",1,0,.1),
          "cape_ml":("mlcape",1,0,1),"cin_ml":("mlcin",1,0,1),
          "vis":("visibility",.001,0,.1),"tqv":("pwat",1,0,.1),
          "relhum_2m":("rh2",1,0,.1),"clcl":("lowcloud",1,0,.1),
