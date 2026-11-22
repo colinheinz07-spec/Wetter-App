@@ -1,0 +1,40 @@
+name: MeteoSwiss PRECIP radar
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '2,7,12,17,22,27,32,37,42,47,52,57 * * * *'
+  push:
+    branches: [main]
+    paths: ['scripts/ingest-swiss-radar.py', '.github/workflows/swiss-radar.yml']
+permissions:
+  contents: write
+concurrency:
+  group: swiss-radar
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts/ingest-swiss-radar.py
+          sparse-checkout-cone-mode: false
+      - run: pip install numpy h5py pyproj
+      - run: python scripts/ingest-swiss-radar.py
+      - name: Publish rolling MeteoSwiss rate snapshot
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          ref=refs/heads/swiss-radar-data
+          previous=$(git ls-remote --heads origin "$ref" | cut -f1)
+          if test -n "$previous"; then
+            git fetch --depth=1 origin "$previous"
+            test "$(git ls-tree -r --name-only "$previous")" = swiss-radar.json.gz
+            test "$(git log -1 --format=%s "$previous")" = 'Generated MeteoSwiss RATE snapshot'
+          fi
+          blob=$(git hash-object -w data/swiss-radar.json.gz)
+          if test -n "$previous" && test "$(git rev-parse "$previous:swiss-radar.json.gz")" = "$blob"; then exit 0; fi
+          tree=$(printf '100644 blob %s\tswiss-radar.json.gz\n' "$blob" | git mktree)
+          commit=$(git commit-tree "$tree" -m 'Generated MeteoSwiss RATE snapshot')
+          git push --force-with-lease="$ref:$previous" origin "$commit:$ref"
