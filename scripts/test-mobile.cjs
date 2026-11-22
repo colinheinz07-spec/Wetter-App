@@ -89,6 +89,14 @@ const server=http.createServer((req,res)=>{
   assert.match(await page.locator('.day-open .hour-detail').innerText(),/Nachtminimum/);
   assert.match(await page.locator('.day-open .period').first().innerText(),/00:00–06:00 Uhr/);
   assert.ok((await page.locator('.day-open .period img').evaluateAll(imgs=>imgs.map(i=>i.alt))).every(x=>x.includes('Niederschlag')));
+  await page.locator('[data-period="2"]').click();
+  assert.match(await page.locator('#period-details').innerText(),/Nachmittag/);
+  assert.match(await page.locator('#period-details').innerText(),/Niederschlagsdauer.*6 h von 6 h/s);
+  assert.match(await page.locator('#period-details').innerText(),/Taupunkt/);
+  await page.locator('[data-period="1"]').click();
+  assert.match(await page.locator('#period-details').innerText(),/Vormittag/);
+  await page.locator('[data-close-period]').click();
+  assert.equal(await page.locator('#period-details').count(),0);
   assert.equal(await page.locator('.real-day').first().locator('.day-alert svg').count(),1);
   await page.locator('[data-page="warnings"]').click();
   assert.match(await page.locator('#local-warning-list').innerText(),/Sturm \/ Orkan · L2 Markant/);

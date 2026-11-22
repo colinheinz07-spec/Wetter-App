@@ -196,3 +196,4 @@ assert.ok(vm.runInContext(`nativeFieldsReady(nm,{id:'rain3',interval:3},3)&&!nat
 assert.ok(!vm.runInContext(`nativeFieldsReady(nm,{id:'cloud'},3)`,context));
 assert.throws(()=>vm.runInContext(`validateNativeMapManifest({...fullNativeMap,scales:{}},'ICON-D2','icon-d2')`,context));
 console.log('Original map: CAPE, wind and precipitation preserve distinct native cells; missing fields stay missing');
+require('./test-forecast-period-details.cjs');
