@@ -1,0 +1,38 @@
+name: Germany official warning polygons
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '3,8,13,18,23,28,33,38,43,48,53,58 * * * *'
+  push:
+    branches: [main]
+    paths: ['scripts/ingest-national-alerts.py', '.github/workflows/national-alerts.yml']
+permissions:
+  contents: write
+concurrency:
+  group: national-alerts
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts/ingest-national-alerts.py
+          sparse-checkout-cone-mode: false
+      - run: python scripts/ingest-national-alerts.py
+      - name: Publish rolling official warnings
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          ref=refs/heads/national-alerts-data
+          previous=$(git ls-remote --heads origin "$ref" | cut -f1)
+          if test -n "$previous"; then
+            git fetch --depth=1 origin "$previous"
+            test "$(git ls-tree -r --name-only "$previous")" = national-alerts.json.gz
+            test "$(git log -1 --format=%s "$previous")" = 'Generated national DWD warning snapshot'
+          fi
+          blob=$(git hash-object -w data/national-alerts.json.gz)
+          tree=$(printf '100644 blob %s\tnational-alerts.json.gz\n' "$blob" | git mktree)
+          commit=$(git commit-tree "$tree" -m 'Generated national DWD warning snapshot')
+          git push --force-with-lease="$ref:$previous" origin "$commit:$ref"

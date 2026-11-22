@@ -1,0 +1,39 @@
+name: Germany next 24h model risk areas
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '16,46 * * * *'
+  push:
+    branches: [main]
+    paths: ['scripts/ingest-national-risks.py', '.github/workflows/national-risks.yml', 'scripts/test-national-warnings.py']
+permissions:
+  contents: write
+concurrency:
+  group: national-risks
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts
+      - run: pip install numpy
+      - run: python scripts/test-national-warnings.py
+      - run: python scripts/ingest-national-risks.py
+      - name: Publish rolling national model assessment
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          ref=refs/heads/national-risks-data
+          previous=$(git ls-remote --heads origin "$ref" | cut -f1)
+          if test -n "$previous"; then
+            git fetch --depth=1 origin "$previous"
+            test "$(git ls-tree -r --name-only "$previous")" = national-risks.json.gz
+            test "$(git log -1 --format=%s "$previous")" = 'Generated national model risk snapshot'
+          fi
+          blob=$(git hash-object -w data/national-risks.json.gz)
+          tree=$(printf '100644 blob %s\tnational-risks.json.gz\n' "$blob" | git mktree)
+          commit=$(git commit-tree "$tree" -m 'Generated national model risk snapshot')
+          git push --force-with-lease="$ref:$previous" origin "$commit:$ref"
