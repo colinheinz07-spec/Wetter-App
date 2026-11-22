@@ -16,7 +16,7 @@ import numpy as np
 
 api=runpy.run_path(str(Path(__file__).with_name('ingest-icon.py')))
 BASE=api['VARIABLES']
-EXTRA={'ww':('ww',1,0,1),'vmax_10m':('gust',3.6,0,.1),'h_snow':('snowdepth',100,0,.1),'relhum_2m':('rh2',1,0,.1),'vis':('visibility',.001,0,.1),'tmin_2m':('tmin',1,-273.15,.1),'tmax_2m':('tmax',1,-273.15,.1)}
+EXTRA={'ww':('ww',1,0,1),'vmax_10m':('gust',3.6,0,.1),'h_snow':('snowdepth',100,0,.1),'snow_gsp':('snowGspTotal',1,0,.1),'snow_con':('snowConTotal',1,0,.1),'relhum_2m':('rh2',1,0,.1),'vis':('visibility',.001,0,.1),'tmin_2m':('tmin',1,-273.15,.1),'tmax_2m':('tmax',1,-273.15,.1)}
 CORE=('temp2','dew','wind','winddir','slp','rainTotal','cloud')
 NOW=dt.datetime.now(dt.timezone.utc)
 DAY=NOW.astimezone(ZoneInfo('Europe/Berlin')).replace(hour=0,minute=0,second=0,microsecond=0).astimezone(dt.timezone.utc)
