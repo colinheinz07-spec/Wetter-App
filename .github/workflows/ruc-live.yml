@@ -2,7 +2,9 @@ name: ICON-D2-RUC native live surface analysis
 on:
   workflow_dispatch:
   schedule:
-    - cron: '12,42 * * * *'
+    # Check shortly after likely publication times; GitHub scheduling may
+    # still be delayed, so the client must keep validating exact data age.
+    - cron: '12,27,42,57 * * * *'
   push:
     branches: [main]
     paths: ['scripts/ingest-ruc-live.py','scripts/ingest-ruc-hail.py','scripts/test-ruc-live.py','.github/workflows/ruc-live.yml']
