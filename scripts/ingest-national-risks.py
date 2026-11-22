@@ -15,9 +15,9 @@ import numpy as np
 ROOT='https://raw.githubusercontent.com/colinheinz07-spec/Wetter-App/generated-native-'
 GRID=dict(west=5.5,south=47.,step=.05,nx=193,ny=165)
 MODELS=(('ICON-D2','icon-d2-de',18),('IFS','ifs-de',24),('GFS','gfs-de',24))
-FIELDS=('temp2','gust','visibility','ww','ptype','rainTotal','tground','rh2','mlcape','mucape','mlcin','s06','orog')
-TYPES=('frost','wind','heat','fog','snow','freezing','ice','rain','storm')
-POTENTIAL={'storm','ice','freezing'}
+FIELDS=('temp2','gust','visibility','ww','ptype','rainTotal','tground','rh2','mlcape','mucape','mlcin','s06','orog','ship','stp')
+TYPES=('frost','wind','heat','fog','snow','freezing','ice','rain','storm','stormwind','stormrain','hail','rotation')
+POTENTIAL={'storm','ice','freezing','stormwind','stormrain','hail','rotation'}
 N=GRID['nx']*GRID['ny']
 
 def timestamp(s):return int(dt.datetime.fromisoformat(s.replace('Z','+00:00')).timestamp())
@@ -78,11 +78,18 @@ def analyze(fields,end):
     # Height threshold is used only when model orography is known.
     wind=levels(gust,[50,70,100,120]);high=levels(gust,[60,80,105,125]);wind[orog>=800]=high[orog>=800]
     heat=np.where(np.isfinite(t),np.where(t>=39,4,np.where(t>=37,3,0)),255).astype(np.uint8)
+    # Separate ingredient-based severe-weather outlooks, never confirmation,
+    # hail size or tornado probability. Lack of an ingredient stays missing.
+    ship=val('ship');stp=val('stp')
+    conv_gust=np.where(conv_known&np.isfinite(gust),np.where(conv&(gust>=70),wind,0),255).astype(np.uint8)
+    conv_rain=np.where(conv_known&np.isfinite(rain),np.where(conv,levels(rain,[20,35,55,80]),0),255).astype(np.uint8)
     return dict(frost=levels(-t,[0,5,10,20]),wind=wind,heat=heat,
                 fog=levels(np.where(v>=0,-v,np.nan),[-.25,-.05]),
                 snow=categorical(phase_known,np.isin(ww,[70,71,72,73,74,75,77,85,86])|(snow&wet)),freezing=categorical(phase_known,freeze),
                 ice=categorical(np.isfinite(ground)&(np.isfinite(precip)|np.isfinite(rh)),(ground<=0)&(wet|(rh>=95))),
-                rain=levels(rain,[20,35,55,80]),storm=storm)
+                rain=levels(rain,[20,35,55,80]),storm=storm,stormwind=conv_gust,stormrain=conv_rain,
+                hail=categorical(conv_known&np.isfinite(ship),conv&(ship>=1)),
+                rotation=categorical(conv_known&np.isfinite(stp),conv&(stp>=1)))
 
 def combine(arrays,kind):
     if not arrays:return np.full(N,255,dtype=np.uint8)

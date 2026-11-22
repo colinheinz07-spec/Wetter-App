@@ -17,6 +17,8 @@ assert r.analyze({},end)['frost'][0]==255
 assert r.combine([x['frost'],fill(0).astype('uint8')],'frost')[0]==2
 assert r.combine([x['frost'],fill(1).astype('uint8')],'frost')[0]==11
 assert r.combine([x['storm'],x['storm']],'storm')[0]==22
+assert x['stormwind'][0]==3 and x['stormrain'][0]==1 and x['hail'][0]==255
+assert r.combine([x['stormwind'],x['stormwind']],'stormwind')[0]==23
 assert r.combine([fill(255).astype('uint8')],'wind')[0]==255
 assert r.analyze(field(end,temp2=39),end)['heat'][0]==4
 assert r.analyze(field(end,temp2=37),end)['heat'][0]==3
