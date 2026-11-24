@@ -31,8 +31,7 @@ jobs:
           git add data/${{ matrix.model }}-hourly.json.gz data/${{ matrix.model }}-hourly.meta.json
           if git diff --cached --quiet; then exit 0; fi
           git commit -m 'Refresh hourly ICON surface forecasts'
-          git pull --rebase origin main
-          git push origin HEAD:main || (git pull --rebase origin main && git push origin HEAD:main)
+          python3 scripts/push-data-commit.py
       - name: Original ICON temperature tiles
         run: /usr/bin/python3 scripts/ingest-icon-temperature.py --model ${{ matrix.model }}
       - name: Publish original-grid temperatures
@@ -41,5 +40,4 @@ jobs:
           if [ -d data/${{ matrix.model }}-anchor-temperature ]; then git add data/${{ matrix.model }}-anchor-temperature; fi
           if git diff --cached --quiet; then exit 0; fi
           git commit -m 'Refresh original-grid hourly ICON temperatures'
-          git pull --rebase origin main
-          git push origin HEAD:main || (git pull --rebase origin main && git push origin HEAD:main)
+          python3 scripts/push-data-commit.py

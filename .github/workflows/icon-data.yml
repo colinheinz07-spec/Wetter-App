@@ -35,8 +35,7 @@ jobs:
           git add data/${{ matrix.model }}.json data/${{ matrix.model }}.json.gz data/${{ matrix.model }}.meta.json
           if git diff --cached --quiet; then exit 0; fi
           git commit -m "Update DWD model data"
-          git pull --rebase origin main
-          git push origin HEAD:main || (git pull --rebase origin main && git push origin HEAD:main)
+          python3 scripts/push-data-commit.py
       - name: Import original-grid temperature fields
         run: /usr/bin/python3 scripts/ingest-icon-temperature.py --model ${{ matrix.model }} --map
       - name: Publish original-grid temperature fields
@@ -44,5 +43,4 @@ jobs:
           git add data/${{ matrix.model }}-map-temperature
           if git diff --cached --quiet; then exit 0; fi
           git commit -m 'Refresh original-grid ${{ matrix.model }} temperature'
-          git pull --rebase origin main
-          git push origin HEAD:main || (git pull --rebase origin main && git push origin HEAD:main)
+          python3 scripts/push-data-commit.py

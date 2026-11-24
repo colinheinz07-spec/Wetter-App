@@ -27,8 +27,7 @@ jobs:
           git add data/gfs.json data/gfs.json.gz data/gfs.meta.json
           if git diff --cached --quiet; then exit 0; fi
           git commit -m 'Update NOAA GFS forecast'
-          git pull --rebase origin main
-          git push origin HEAD:main || (git pull --rebase origin main && git push origin HEAD:main)
+          python3 scripts/push-data-commit.py
       - name: Import original-grid temperature fields
         run: /usr/bin/python3 scripts/ingest-global-temperature.py --model gfs
       - name: Publish original-grid temperature fields
@@ -36,5 +35,4 @@ jobs:
           git add data/gfs-temperature
           if git diff --cached --quiet; then exit 0; fi
           git commit -m 'Refresh original-grid gfs temperature'
-          git pull --rebase origin main
-          git push origin HEAD:main || (git pull --rebase origin main && git push origin HEAD:main)
+          python3 scripts/push-data-commit.py
