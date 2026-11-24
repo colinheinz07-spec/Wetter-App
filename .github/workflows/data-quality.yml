@@ -1,0 +1,26 @@
+name: Weather data publication checks
+on:
+  pull_request:
+    paths: ['scripts/**', '.github/workflows/**']
+  push:
+    branches: [main]
+    paths: ['scripts/native-point.py', 'scripts/ingest-native-maps.py', 'scripts/ingest-icon.py', 'scripts/push-data-commit.py', 'scripts/check-native-snapshot-size.py', 'scripts/test-native-publication.py', 'scripts/test-push-data-commit.py', '.github/workflows/data-quality.yml']
+permissions:
+  contents: read
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install numpy
+      - run: python -m compileall -q scripts
+      - run: python scripts/test-native-point.py
+      - run: python scripts/test-native-publication.py
+      - run: python scripts/test-push-data-commit.py

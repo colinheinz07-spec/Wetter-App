@@ -6,6 +6,7 @@ per-tile streams bound memory; no national forecast raster is sent to a phone.
 import base64
 import gzip
 import json
+import re
 from pathlib import Path
 import tempfile
 import numpy as np
@@ -25,7 +26,7 @@ SURFACE = CORE | {'winddir', 'gust', 'rh2', 'visibility', 'ww', 'ptype','orog','
     for level in (1000,975,950,925,900,850,800,700,600,500,400,300,250,200,150,100)}
 
 class PointTiles:
-    def __init__(self, output, model, run, generated, hours, size=24, extrema=None, required=None, quick=False):
+    def __init__(self, output, model, run, generated, hours, size=24, extrema=None, required=None, quick=False, profile_horizon=None):
         self.output=Path(output); self.output.mkdir(parents=True, exist_ok=True)
         self.meta=dict(schema=3,model=model,run=run,generated=generated,hours=hours,
                        tileSize=size,scales={},frames={},extremaWindowHours=extrema)
@@ -33,6 +34,10 @@ class PointTiles:
         self.required=CORE if required is None else set(required)
         self.keys=set()
         self.quick = quick
+        self.profile_horizon = profile_horizon
+        if profile_horizon is not None:
+            if not isinstance(profile_horizon,int) or profile_horizon<0:raise ValueError('Invalid point profile horizon')
+            self.meta['profileHorizonHours']=profile_horizon
 
     def add(self, grid, hour, packed, scales):
         if self.meta.get('grid',grid)!=grid: raise ValueError('Point grid changed')
@@ -40,6 +45,10 @@ class PointTiles:
         if not self.required<=packed.keys(): raise ValueError('Missing point core field')
         shape=(grid['ny'],grid['nx']); arrays={}
         for k in SURFACE & packed.keys():
+            # Current expert profiles are needed only while this run is fresh.
+            # Future pressure-level fields remain in the original map packets;
+            # avoid duplicating them in every long-range location tile as well.
+            if self.profile_horizon is not None and hour>self.profile_horizon and k not in ('u100','v100') and re.fullmatch(r'(?:t|rh|z|u|v)\d{3,4}',k):continue
             raw=base64.b64decode(packed[k],validate=True)
             if len(raw)!=shape[0]*shape[1]*2: raise ValueError(f'Wrong point field shape {k}')
             a=np.frombuffer(raw,dtype='<i2').reshape(shape)

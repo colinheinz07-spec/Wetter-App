@@ -38,7 +38,7 @@ EXTRA = {"vmax_10m":("gust",3.6,0,.1),"h_snow":("snowdepth",100,0,.1),
          "hzerocl":("freezing",1,0,1),"ww":("ww",1,0,1),
          "tmax_2m":("tmax",1,-273.15,.1),"tmin_2m":("tmin",1,-273.15,.1),
          "t_snow":("tsnow",1,-273.15,.1),"t_5cm":("ground",1,-273.15,.1),
-         "bas_con":("cloudbase",1,0,1),"top_con":("cloudtop",1,0,1),
+         "hbas_con":("cloudbase",1,0,1),"htop_con":("cloudtop",1,0,1),
          "htop_dc":("deepcloudtop",1,0,1),"cape_mu":("mucape",1,0,1),
          "cin_mu":("mucin",1,0,1)}
 FILENAME = re.compile(r'href="([^"]*regular-lat-lon_single-level_(\d{10})_(\d{3})[^"]*\.grib2\.bz2)"')

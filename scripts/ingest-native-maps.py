@@ -28,12 +28,12 @@ def germany_hours(model):
 class Maps:
     def __init__(self,root,model,run,hours,points=True,core_hours=None,point_hours=None):
         self.root=Path(root);self.root.mkdir(parents=True,exist_ok=True)
-        self.meta=dict(schema=2,profileVersion=3,model=model,run=run,generated=dt.datetime.now(dt.timezone.utc).isoformat(),hours=hours,frames={},scales={},derivedFields={})
+        self.meta=dict(schema=2,profileVersion=3,pointProfileHorizonHours=36,model=model,run=run,generated=dt.datetime.now(dt.timezone.utc).isoformat(),hours=hours,frames={},scales={},derivedFields={})
         self.core_hours=set(hours if core_hours is None else core_hours)
         self.meta['coreHours']=[h for h in hours if h in self.core_hours]
         point_hours=hours if point_hours is None else point_hours
         self.point_hours=set(point_hours)
-        self.points=runpy.run_path(str(HERE/'native-point.py'))['PointTiles'](self.root,model,run,self.meta['generated'],point_hours,extrema=6 if model.startswith('ICON-') else None) if points else None
+        self.points=runpy.run_path(str(HERE/'native-point.py'))['PointTiles'](self.root,model,run,self.meta['generated'],point_hours,extrema=6 if model.startswith('ICON-') else None,profile_horizon=36) if points else None
     def add(self,grid,h,frame,scales):
         if self.meta.get('grid',grid)!=grid:raise ValueError('Changing grid')
         self.meta['grid']=grid

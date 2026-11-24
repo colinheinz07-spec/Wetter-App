@@ -25,5 +25,4 @@ jobs:
           git add data/*.json.gz
           if git diff --cached --quiet; then exit 0; fi
           git commit -m 'Refresh compact model transport'
-          git pull --rebase origin main
-          git push origin HEAD:main
+          python3 scripts/push-data-commit.py
